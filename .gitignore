@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.output/
+.wxt/
+stats.html
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Test artifacts
+coverage/
+playwright-report/
+test-results/
+
+# Editor / OS
+.DS_Store
+.idea/
+*.local
+
+# Stray local artifacts (not part of the project)
+venv/
