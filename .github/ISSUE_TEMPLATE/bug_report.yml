@@ -1,0 +1,42 @@
+name: Bug report
+description: Something is broken
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Clear description of the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to …
+        2. Select text …
+        3. Click …
+    validations:
+      required: true
+  - type: input
+    id: site
+    attributes:
+      label: Website where it happened
+      placeholder: chatgpt.com
+  - type: input
+    id: provider
+    attributes:
+      label: AI provider / model configured
+      placeholder: e.g. Ollama / llama3, OpenAI / gpt-4o
+  - type: input
+    id: version
+    attributes:
+      label: Extension version & Chrome version
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Diagnostics
+      description: Paste output from Settings → Diagnostics if available. Remove any prompt content you consider private.
