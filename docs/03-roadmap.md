@@ -51,7 +51,7 @@ Milestones are strictly ordered by dependency; each ends with a green CI run and
 **Testing:** the deepest unit suite: fixture prompts → expected findings; score snapshots; meta-prompt golden files per (action × target model); property test — rewriter contract never leaks user text outside delimiters. Qualitative eval doc: 20 sample prompts before/after across 3 providers.
 **Commits:** `feat(core): prompt analysis engine`, `feat(core): quality scoring`, `feat(core): meta-prompt composition`, `feat(actions): full action registry`, `feat(content-ui): analysis and diff views`.
 
-## M5 — Site adapters for major AI platforms (M–L, deps: M3, deps M4 for model hints) 
+## M5 — Site adapters for major AI platforms (M–L, deps: M3, deps M4 for model hints)
 
 **Objectives:** first-class reliability on the sites that matter.
 
@@ -84,7 +84,9 @@ Milestones are strictly ordered by dependency; each ends with a green CI run and
 ---
 
 ### Post-1.0 candidates (recorded, unscheduled)
+
 Passive "lint as you type" underlines · optional host permissions / on-demand injection · Firefox & Edge store releases · hosted freemium provider · prompt A/B testing harness · community template sharing.
 
 ### Standing workflow rules (all milestones)
+
 Feature branches + PRs even solo (review-readiness discipline); Conventional Commits; changeset per user-facing change; docs updated in the same PR as the feature; `main` always green and loadable.

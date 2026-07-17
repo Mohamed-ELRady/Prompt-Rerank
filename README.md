@@ -1,4 +1,4 @@
-# PromptPolish *(working title)*
+# PromptPolish _(working title)_
 
 A Chrome extension that works like Grammarly — but for AI prompts. Select a prompt in ChatGPT, Claude, Gemini, or any editable field on the web, and get an analysis-guided, intent-preserving rewrite that applies modern prompt-engineering best practices. Bring your own API key (OpenAI, Anthropic, Gemini, OpenRouter, DeepSeek, or local models via Ollama / LM Studio) — no backend, no account, no telemetry.
 

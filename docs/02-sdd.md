@@ -1,6 +1,6 @@
 # Phase 2 — Software Design Document (SDD)
 
-**Project:** PromptPolish *(working title)*
+**Project:** PromptPolish _(working title)_
 **Document status:** Draft for approval
 **Date:** 2026-07-17
 
@@ -43,20 +43,20 @@ PromptPolish is a Manifest V3 browser extension with four runtime surfaces shari
 
 ## 2. Technology decisions
 
-| Choice | Decision | Justification / alternatives considered |
-|---|---|---|
-| Extension framework | **WXT** (wxt.dev) | The de-facto modern standard for MV3 development: file-based entrypoints, auto-generated manifest, HMR for extension pages *and* content scripts, first-class Shadow-DOM UI helper (`createShadowRootUi`), cross-browser output (`-b firefox`), built on Vite. Alternatives: raw Vite + `@crxjs/vite-plugin` (crxjs has had maintainer-continuity problems and weaker content-script DX); Plasmo (heavier abstraction, more lock-in, slower releases). WXT keeps us closest to the platform while removing MV3 boilerplate pain. |
-| Language | **TypeScript, `strict`** | Non-negotiable for a multi-surface codebase; message protocol and provider layer depend on discriminated unions. |
-| UI | **React 18** | Team-familiar, huge ecosystem, fine at this scale. Considered Svelte/Solid (smaller bundles) — real win is small because the content-script *core* ships no framework at all; React loads only in lazy UI chunks and extension pages. Consistency across surfaces beats ~20 KB. |
-| Styling | **Tailwind CSS v4** | Fast iteration, tiny purged output, trivially themeable via CSS variables (dark mode), and compiles to a single stylesheet we inject into the Shadow DOM (no global leakage by construction). |
-| State | **Zustand** (UI state) + **custom typed storage layer** (persistent state) | Zustand is tiny and works in content-script contexts. Persistent truth lives in `chrome.storage` behind a versioned, zod-validated repository — *not* in a JS store — because the MV3 worker is ephemeral. |
-| Server-state lib | **None (dropped TanStack Query)** | Our "server" is the background worker over a message port; requests are single-flight streams, not cacheable queries. TanStack Query would model this badly and add 12 KB. A small `useStreamingRequest` hook covers it. |
-| Validation | **zod** | Runtime validation at every trust boundary: messages, storage reads (migration), provider responses, imported JSON. |
-| Testing | **Vitest** (unit/integration, happy-dom) + **Playwright** (E2E with real extension loaded via persistent context) | Standard, fast, both first-class with Vite. |
-| Lint/format | **ESLint (flat config, typescript-eslint) + Prettier** | Plus `eslint-plugin-boundaries` to *enforce* the layering rules in CI (core cannot import chrome/react/dom). |
-| Package manager | **pnpm** | Fast, strict node_modules prevents phantom deps. |
-| CI | **GitHub Actions** | Lint → typecheck → unit → build → E2E; release workflow builds, zips, tags, drafts release notes via changesets. |
-| Versioning/changelog | **Changesets** | PR-driven semver + CHANGELOG generation; better mono-flow fit than semantic-release for a reviewed OSS repo. |
+| Choice               | Decision                                                                                                          | Justification / alternatives considered                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Extension framework  | **WXT** (wxt.dev)                                                                                                 | The de-facto modern standard for MV3 development: file-based entrypoints, auto-generated manifest, HMR for extension pages _and_ content scripts, first-class Shadow-DOM UI helper (`createShadowRootUi`), cross-browser output (`-b firefox`), built on Vite. Alternatives: raw Vite + `@crxjs/vite-plugin` (crxjs has had maintainer-continuity problems and weaker content-script DX); Plasmo (heavier abstraction, more lock-in, slower releases). WXT keeps us closest to the platform while removing MV3 boilerplate pain. |
+| Language             | **TypeScript, `strict`**                                                                                          | Non-negotiable for a multi-surface codebase; message protocol and provider layer depend on discriminated unions.                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| UI                   | **React 18**                                                                                                      | Team-familiar, huge ecosystem, fine at this scale. Considered Svelte/Solid (smaller bundles) — real win is small because the content-script _core_ ships no framework at all; React loads only in lazy UI chunks and extension pages. Consistency across surfaces beats ~20 KB.                                                                                                                                                                                                                                                  |
+| Styling              | **Tailwind CSS v4**                                                                                               | Fast iteration, tiny purged output, trivially themeable via CSS variables (dark mode), and compiles to a single stylesheet we inject into the Shadow DOM (no global leakage by construction).                                                                                                                                                                                                                                                                                                                                    |
+| State                | **Zustand** (UI state) + **custom typed storage layer** (persistent state)                                        | Zustand is tiny and works in content-script contexts. Persistent truth lives in `chrome.storage` behind a versioned, zod-validated repository — _not_ in a JS store — because the MV3 worker is ephemeral.                                                                                                                                                                                                                                                                                                                       |
+| Server-state lib     | **None (dropped TanStack Query)**                                                                                 | Our "server" is the background worker over a message port; requests are single-flight streams, not cacheable queries. TanStack Query would model this badly and add 12 KB. A small `useStreamingRequest` hook covers it.                                                                                                                                                                                                                                                                                                         |
+| Validation           | **zod**                                                                                                           | Runtime validation at every trust boundary: messages, storage reads (migration), provider responses, imported JSON.                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Testing              | **Vitest** (unit/integration, happy-dom) + **Playwright** (E2E with real extension loaded via persistent context) | Standard, fast, both first-class with Vite.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Lint/format          | **ESLint (flat config, typescript-eslint) + Prettier**                                                            | Plus `eslint-plugin-boundaries` to _enforce_ the layering rules in CI (core cannot import chrome/react/dom).                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Package manager      | **pnpm**                                                                                                          | Fast, strict node_modules prevents phantom deps.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| CI                   | **GitHub Actions**                                                                                                | Lint → typecheck → unit → build → E2E; release workflow builds, zips, tags, drafts release notes via changesets.                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Versioning/changelog | **Changesets**                                                                                                    | PR-driven semver + CHANGELOG generation; better mono-flow fit than semantic-release for a reviewed OSS repo.                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 ## 3. Folder structure
 
@@ -126,9 +126,12 @@ interface AIProvider {
   readonly meta: { label: string; requiresKey: boolean; defaultBaseUrl?: string };
   listModels(cfg: ProviderConfig): Promise<ModelInfo[]>;
   validate(cfg: ProviderConfig): Promise<ValidationResult>;
-  complete(req: CompletionRequest, cfg: ProviderConfig,
-           onChunk: (delta: string) => void,
-           signal: AbortSignal): Promise<CompletionResult>;
+  complete(
+    req: CompletionRequest,
+    cfg: ProviderConfig,
+    onChunk: (delta: string) => void,
+    signal: AbortSignal,
+  ): Promise<CompletionResult>;
 }
 ```
 
@@ -141,16 +144,20 @@ interface AIProvider {
 ```ts
 interface SiteAdapter {
   readonly id: string;
-  matches(url: URL): boolean;                       // specificity-ordered registry
+  matches(url: URL): boolean; // specificity-ordered registry
   isSupportedField(el: Element): boolean;
   getText(el: Element): { full: string; selection?: Range | [number, number] };
-  insertText(el: Element, text: string, mode: 'replace-selection' | 'replace-all'):
-    Promise<InsertResult>;                          // ok | failed (→ fallback ladder)
-  targetModelHint?(): TargetModel | undefined;      // e.g. 'claude' on claude.ai
+  insertText(
+    el: Element,
+    text: string,
+    mode: 'replace-selection' | 'replace-all',
+  ): Promise<InsertResult>; // ok | failed (→ fallback ladder)
+  targetModelHint?(): TargetModel | undefined; // e.g. 'claude' on claude.ai
 }
 ```
 
 Generic strategies (shipped as the lowest-specificity adapter):
+
 - `textarea`/`input`: set via the **native value setter** (`Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set`) then dispatch `input` — this is what keeps React/Vue controlled inputs in sync.
 - `contenteditable`: restore saved Range → `document.execCommand('insertText', …)`, falling back to synthetic `beforeinput` (`insertReplacementText`) — both paths route through the editor framework's own event handling (ProseMirror/Lexical/Quill listen to these), so editor state stays consistent.
 
@@ -196,16 +203,16 @@ Single source of truth in `platform/messaging/protocol.ts`: a zod-described disc
 
 ## 10. Testing strategy
 
-| Layer | Tool | What |
-|---|---|---|
-| `core/` | Vitest | Analyzer rules (fixture prompts → expected findings), scoring snapshots, meta-prompt composition golden files. Target ≥ 90 %. |
-| `providers/` | Vitest + mocked fetch | Request shaping, SSE parsing (recorded fixtures per vendor), error normalization for every `ProviderError` code. |
-| `platform/` | Vitest + `chrome` mock (`@webext-core/fake-browser` or wxt's testing utils) | Storage migrations, protocol validation, vault. |
-| UI | Vitest + Testing Library (happy-dom) | Toolbar, panel states (loading/stream/error), a11y roles; `vitest-axe` for automated a11y checks. |
-| Site adapters | Playwright against local fixture pages embedding *real* ProseMirror/Lexical/Quill/Monaco + plain fields | The insertion matrix — the highest-risk logic gets the most realistic tests. |
-| E2E | Playwright with the built extension loaded in a persistent Chromium context, provider stubbed via a local mock server (Ollama-shaped) | Full flows: select → improve → stream → apply; settings; history. |
-| Performance | Playwright trace assertions | No long tasks from our scripts on fixture pages; bundle budgets in CI. |
-| Regression | All of the above in CI on every PR; snapshot suites for scores/meta-prompts catch unintended drift. |
+| Layer         | Tool                                                                                                                                  | What                                                                                                                          |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `core/`       | Vitest                                                                                                                                | Analyzer rules (fixture prompts → expected findings), scoring snapshots, meta-prompt composition golden files. Target ≥ 90 %. |
+| `providers/`  | Vitest + mocked fetch                                                                                                                 | Request shaping, SSE parsing (recorded fixtures per vendor), error normalization for every `ProviderError` code.              |
+| `platform/`   | Vitest + `chrome` mock (`@webext-core/fake-browser` or wxt's testing utils)                                                           | Storage migrations, protocol validation, vault.                                                                               |
+| UI            | Vitest + Testing Library (happy-dom)                                                                                                  | Toolbar, panel states (loading/stream/error), a11y roles; `vitest-axe` for automated a11y checks.                             |
+| Site adapters | Playwright against local fixture pages embedding _real_ ProseMirror/Lexical/Quill/Monaco + plain fields                               | The insertion matrix — the highest-risk logic gets the most realistic tests.                                                  |
+| E2E           | Playwright with the built extension loaded in a persistent Chromium context, provider stubbed via a local mock server (Ollama-shaped) | Full flows: select → improve → stream → apply; settings; history.                                                             |
+| Performance   | Playwright trace assertions                                                                                                           | No long tasks from our scripts on fixture pages; bundle budgets in CI.                                                        |
+| Regression    | All of the above in CI on every PR; snapshot suites for scores/meta-prompts catch unintended drift.                                   |
 
 Live-provider smoke tests exist but run only manually/nightly with repo secrets — never on PRs.
 
