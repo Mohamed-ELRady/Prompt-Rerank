@@ -24,3 +24,6 @@ test-results/
 
 # Stray local artifacts (not part of the project)
 venv/
+
+# Claude Code local settings
+.claude/
