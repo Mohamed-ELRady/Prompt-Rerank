@@ -109,6 +109,19 @@ export default defineBackground(() => {
     void settingsRepo.get().then((settings) => settingsRepo.set(settings));
   });
 
+  browser.commands.onCommand.addListener((command) => {
+    if (command !== 'improve-selection') {
+      return;
+    }
+    void browser.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
+      if (tab?.id !== undefined) {
+        void browser.tabs
+          .sendMessage(tab.id, { kind: 'promptpolish', type: 'command.improve' })
+          .catch(() => undefined); // no content script on this page (e.g. chrome://)
+      }
+    });
+  });
+
   onPortConnect(improvePort, (session) => {
     session.onMessage((message) => {
       void runImprove(session, message);
