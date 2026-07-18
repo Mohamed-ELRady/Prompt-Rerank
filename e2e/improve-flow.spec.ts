@@ -106,6 +106,24 @@ test('insertion sticks in a framework-controlled field', async ({ context }) => 
   await expect(page.locator('#controlled')).toHaveValue(MOCK_IMPROVED);
 });
 
+test('insertion sticks in a framework-controlled contenteditable editor', async ({ context }) => {
+  const page = await context.newPage();
+  await page.goto('http://localhost:8787/editor-ce.html');
+
+  await selectAllIn(page, '#editor');
+  const toolbar = page.getByRole('toolbar', { name: 'PromptPolish actions' });
+  await expect(toolbar).toBeVisible();
+  await toolbar.getByRole('button', { name: 'Improve' }).click();
+
+  const panel = page.getByRole('region', { name: 'PromptPolish result' });
+  await expect(panel).toContainText(MOCK_IMPROVED);
+  await panel.getByRole('button', { name: 'Apply' }).click();
+  await expect(page.locator('#editor')).toContainText(MOCK_IMPROVED);
+  // outlive two "render" ticks — a naive DOM write would be reverted
+  await page.waitForTimeout(150);
+  await expect(page.locator('#editor')).toContainText(MOCK_IMPROVED);
+});
+
 test('toolbar does not appear for non-editable selections', async ({ context }) => {
   const page = await context.newPage();
   await page.goto('http://localhost:8787/plain.html');

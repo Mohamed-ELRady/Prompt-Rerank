@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>PromptPolish fixture: framework contenteditable</title>
+  </head>
+  <body>
+    <h1>Framework-controlled contenteditable</h1>
+    <!--
+      Emulates the contract ProseMirror/Lexical-style editors follow: editor
+      state is the source of truth, DOM mutations that bypass the editor's
+      input events get reverted on the next render tick, and changes arriving
+      via input events (execCommand insertText dispatches these) are adopted.
+    -->
+    <div
+      id="editor"
+      contenteditable="true"
+      style="border: 1px solid #999; padding: 8px; width: 480px; min-height: 60px"
+    ></div>
+    <script>
+      const editor = document.getElementById('editor');
+      let state = 'refactor my function to be cleaner';
+      editor.textContent = state;
+      editor.addEventListener('input', () => {
+        state = editor.textContent;
+      });
+      setInterval(() => {
+        if (editor.textContent !== state) {
+          editor.textContent = state; // revert untracked DOM writes
+        }
+      }, 50);
+    </script>
+  </body>
+</html>
