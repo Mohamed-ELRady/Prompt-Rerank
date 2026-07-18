@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>PromptPolish fixture: controlled field</title>
+  </head>
+  <body>
+    <h1>Framework-controlled field</h1>
+    <!--
+      Emulates a React-style controlled input: component state only updates
+      through input events, and the render loop keeps forcing the DOM value
+      back to state. A naive `element.value = x` write is reverted; only the
+      native-setter + input-event insertion sticks.
+    -->
+    <textarea id="controlled" rows="4" cols="60"></textarea>
+    <script>
+      const el = document.getElementById('controlled');
+      let state = 'make my code faster somehow';
+      el.value = state;
+      el.addEventListener('input', () => {
+        state = el.value;
+      });
+      setInterval(() => {
+        if (el.value !== state) {
+          el.value = state; // framework "re-render" clobbers untracked writes
+        }
+      }, 50);
+    </script>
+  </body>
+</html>

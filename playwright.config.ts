@@ -10,4 +10,9 @@ export default defineConfig({
   use: {
     trace: 'retain-on-failure',
   },
+  webServer: {
+    command: 'node e2e/server.mjs',
+    port: 8787,
+    reuseExistingServer: !process.env.CI,
+  },
 });
