@@ -4,6 +4,7 @@ import { browser, defineContentScript } from '#imports';
 // chunk into this entry.
 import type { UiController } from '@/content-ui/mount';
 import { captureSelection } from '@/site-adapters/generic/capture';
+import { findSiteProfile } from '@/site-adapters/profiles';
 
 /**
  * Always-loaded watcher (SDD §6, §8). Everything heavy — React, zod,
@@ -68,11 +69,38 @@ export default defineContentScript({
 
     document.addEventListener('selectionchange', onSelectionMaybeChanged);
 
+    // Keyboard shortcut with nothing selected: select the site's composer
+    // content so "improve the whole field" is the same pipeline (FR-A6, A7).
+    function selectComposerContent(): boolean {
+      const selector = findSiteProfile(location.host)?.composerSelector;
+      const composer = selector ? document.querySelector(selector) : null;
+      if (composer instanceof HTMLTextAreaElement || composer instanceof HTMLInputElement) {
+        if (composer.value.trim() === '') {
+          return false;
+        }
+        composer.focus();
+        composer.setSelectionRange(0, composer.value.length);
+        return true;
+      }
+      if (composer instanceof HTMLElement && composer.textContent.trim() !== '') {
+        const range = document.createRange();
+        range.selectNodeContents(composer);
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        return true;
+      }
+      return false;
+    }
+
     // Keyboard command relayed by the background; validated loosely here to
     // keep zod out of this entry (the real protocol boundary is bg-side).
     browser.runtime.onMessage.addListener((raw: unknown) => {
       const message = raw as { kind?: string; type?: string };
       if (message.kind === 'promptpolish' && message.type === 'command.improve') {
+        if (!captureSelection()) {
+          selectComposerContent();
+        }
         void evaluateSelection();
       }
     });

@@ -98,7 +98,13 @@ export default tseslint.config(
           message: 'dangerouslySetInnerHTML is banned (SDD §7).',
         },
       ],
-      '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports' }],
+      // separate-type-imports: `import type {…}` is fully erased at build
+      // time, while the inline form leaves a side-effect import that has
+      // twice bloated the content-script bundle (see budget check).
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
+        { fixStyle: 'separate-type-imports' },
+      ],
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },

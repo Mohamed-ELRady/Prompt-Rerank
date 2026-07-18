@@ -5,6 +5,7 @@ import { sendMessage } from '@/platform/messaging/messenger';
 import { connectPort } from '@/platform/messaging/port';
 import { improvePort } from '@/platform/messaging/improve-port';
 import { applyToTarget } from '@/site-adapters/generic/insert';
+import { findSiteProfile } from '@/site-adapters/profiles';
 import { type CapturedTarget } from '@/site-adapters/types';
 import { AnalysisCard } from './AnalysisCard';
 import { DiffView } from './DiffView';
@@ -123,7 +124,14 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
         );
       }
     });
-    port.post({ type: 'start', text: target.text, actionId: action.id, origin: location.origin });
+    port.post({
+      type: 'start',
+      text: target.text,
+      actionId: action.id,
+      origin: location.origin,
+      // e.g. claude.ai → 'claude', so plain Improve is already model-tuned
+      targetModel: findSiteProfile(location.host)?.targetModel,
+    });
   }, []);
 
   const apply = useCallback((target: CapturedTarget, improved: string) => {
