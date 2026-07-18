@@ -25,6 +25,47 @@ export const messageDefinitions = {
     input: z.object({ patch: settingsSchema.partial() }),
     output: settingsSchema,
   },
+  // Provider metadata + per-provider state for the settings UI. Shapes are
+  // declared here (data only); the background fills them from the registry.
+  'providers.list': {
+    input: z.object({}),
+    output: z.object({
+      providers: z.array(
+        z.object({
+          id: z.string(),
+          label: z.string(),
+          requiresKey: z.boolean(),
+          defaultBaseUrl: z.string(),
+          defaultModel: z.string(),
+          keyHint: z.string().optional(),
+          /** masked preview like "sk-…4f2a"; undefined = no key stored */
+          keyPreview: z.string().optional(),
+        }),
+      ),
+    }),
+  },
+  'providers.models': {
+    input: z.object({ providerId: z.string() }),
+    output: z.discriminatedUnion('ok', [
+      z.object({ ok: z.literal(true), models: z.array(z.string()) }),
+      z.object({ ok: z.literal(false), code: z.string(), message: z.string() }),
+    ]),
+  },
+  'providers.validate': {
+    input: z.object({ providerId: z.string() }),
+    output: z.discriminatedUnion('ok', [
+      z.object({ ok: z.literal(true) }),
+      z.object({ ok: z.literal(false), code: z.string(), message: z.string() }),
+    ]),
+  },
+  'vault.set': {
+    input: z.object({ providerId: z.string(), key: z.string().min(1) }),
+    output: z.object({ keyPreview: z.string() }),
+  },
+  'vault.delete': {
+    input: z.object({ providerId: z.string() }),
+    output: z.object({}),
+  },
 } as const;
 
 export type MessageType = keyof typeof messageDefinitions;

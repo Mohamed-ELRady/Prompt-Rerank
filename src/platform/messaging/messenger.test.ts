@@ -9,6 +9,13 @@ function registerTestHandlers(overrides: Partial<MessageHandlers> = {}): Message
     ping: vi.fn(() => Promise.resolve({ ok: true as const, version: '0.0.0' })),
     'settings.get': vi.fn(() => Promise.resolve(defaultSettings)),
     'settings.update': vi.fn(({ patch }) => Promise.resolve({ ...defaultSettings, ...patch })),
+    'providers.list': vi.fn(() => Promise.resolve({ providers: [] })),
+    'providers.models': vi.fn(() =>
+      Promise.resolve({ ok: false as const, code: 'unknown', message: 'stub' }),
+    ),
+    'providers.validate': vi.fn(() => Promise.resolve({ ok: true as const })),
+    'vault.set': vi.fn(() => Promise.resolve({ keyPreview: '••••' })),
+    'vault.delete': vi.fn(() => Promise.resolve({})),
     ...overrides,
   };
   registerMessageHandlers(handlers);

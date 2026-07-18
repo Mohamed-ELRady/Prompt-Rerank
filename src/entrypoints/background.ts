@@ -1,21 +1,160 @@
 import { browser, defineBackground } from '#imports';
-import { registerMessageHandlers } from '@/platform/messaging';
+import { buildMetaPrompt } from '@/core/meta-prompt';
 import { createLogger } from '@/platform/logging';
-import { settingsRepo } from '@/platform/storage';
+import { registerMessageHandlers } from '@/platform/messaging';
+import { improvePort, type ImproveServerMessage } from '@/platform/messaging/improve-port';
+import { onPortConnect, type PortSession } from '@/platform/messaging/port';
+import { addHistoryEntry, settingsRepo } from '@/platform/storage';
+import { deleteApiKey, getApiKey, getMaskedKeyPreview, setApiKey } from '@/platform/storage/vault';
+import { getProvider, providerRegistry, toProviderError, type ProviderConfig } from '@/providers';
 
 const log = createLogger('background');
+
+/** Resolves adapter defaults + settings overrides + vault key. */
+async function resolveProviderConfig(providerId?: string): Promise<{
+  providerId: string;
+  config: ProviderConfig;
+}> {
+  const settings = await settingsRepo.get();
+  const id = providerId ?? settings.provider.activeId;
+  const provider = getProvider(id);
+  const overrides = settings.provider.configs[id] ?? {};
+  return {
+    providerId: id,
+    config: {
+      apiKey: await getApiKey(id),
+      baseUrl: overrides.baseUrl,
+      model: overrides.model ?? provider.meta.defaultModel,
+    },
+  };
+}
+
+type ImproveSession = PortSession<
+  typeof improvePort.clientMessage,
+  typeof improvePort.serverMessage
+>;
+
+async function runImprove(
+  session: ImproveSession,
+  request: { text: string; actionId: string; origin?: string },
+): Promise<void> {
+  const post = (message: ImproveServerMessage) => {
+    session.post(message);
+  };
+  try {
+    const { providerId, config } = await resolveProviderConfig();
+    const provider = getProvider(providerId);
+    const meta = buildMetaPrompt({ actionId: request.actionId, text: request.text });
+
+    // Widened type: mutated inside the onChunk closure, which narrowing misses.
+    let streamedAny = false as boolean;
+    const attempt = () =>
+      provider.complete(
+        { system: meta.system, user: meta.user, temperature: 0.3 },
+        config,
+        (delta) => {
+          streamedAny = true;
+          post({ type: 'chunk', delta });
+        },
+        session.signal,
+      );
+
+    let result;
+    try {
+      result = await attempt();
+    } catch (error) {
+      const providerError = toProviderError(error);
+      // One retry with backoff for transient failures, but never mid-stream —
+      // the client would see duplicated output.
+      if (!providerError.retryable || streamedAny || session.signal.aborted) {
+        throw providerError;
+      }
+      log.info(`retrying after ${providerError.code}`);
+      await new Promise((resolve) => setTimeout(resolve, 750));
+      result = await attempt();
+    }
+
+    if (session.signal.aborted) {
+      return;
+    }
+    post({ type: 'done', improved: result.text });
+
+    const settings = await settingsRepo.get();
+    if (request.origin === undefined || !settings.historyExcludedOrigins.includes(request.origin)) {
+      await addHistoryEntry({
+        id: crypto.randomUUID(),
+        createdAt: Date.now(),
+        origin: request.origin ?? 'unknown',
+        actionId: request.actionId,
+        original: request.text,
+        improved: result.text,
+        favorite: false,
+      });
+    }
+  } catch (error) {
+    if (session.signal.aborted) {
+      return; // client went away; nobody to tell
+    }
+    const providerError = toProviderError(error);
+    log.warn(`improve failed: ${providerError.code}`);
+    post({ type: 'error', code: providerError.code, message: providerError.message });
+  }
+}
 
 export default defineBackground(() => {
   browser.runtime.onInstalled.addListener((details) => {
     log.info(`installed (${details.reason})`);
-    // Reading every repo runs pending migrations exactly once per update
-    // instead of lazily on first use.
+    // Reading + rewriting runs pending migrations once per update instead of
+    // lazily on first use.
     void settingsRepo.get().then((settings) => settingsRepo.set(settings));
+  });
+
+  onPortConnect(improvePort, (session) => {
+    session.onMessage((message) => {
+      void runImprove(session, message);
+    });
   });
 
   registerMessageHandlers({
     ping: () => Promise.resolve({ ok: true, version: browser.runtime.getManifest().version }),
     'settings.get': () => settingsRepo.get(),
     'settings.update': ({ patch }) => settingsRepo.update((current) => ({ ...current, ...patch })),
+    'providers.list': async () => ({
+      providers: await Promise.all(
+        [...providerRegistry.values()].map(async (provider) => ({
+          id: provider.id,
+          ...provider.meta,
+          keyPreview: await getMaskedKeyPreview(provider.id),
+        })),
+      ),
+    }),
+    'providers.models': async ({ providerId }) => {
+      try {
+        const { config } = await resolveProviderConfig(providerId);
+        const models = await getProvider(providerId).listModels(config);
+        return { ok: true, models: models.map((m) => m.id) };
+      } catch (error) {
+        const providerError = toProviderError(error);
+        return { ok: false, code: providerError.code, message: providerError.message };
+      }
+    },
+    'providers.validate': async ({ providerId }) => {
+      try {
+        const { config } = await resolveProviderConfig(providerId);
+        await getProvider(providerId).validate(config);
+        return { ok: true };
+      } catch (error) {
+        const providerError = toProviderError(error);
+        return { ok: false, code: providerError.code, message: providerError.message };
+      }
+    },
+    'vault.set': async ({ providerId, key }) => {
+      await setApiKey(providerId, key);
+      return { keyPreview: (await getMaskedKeyPreview(providerId)) ?? '••••' };
+    },
+    'vault.delete': async ({ providerId }) => {
+      await deleteApiKey(providerId);
+      return {};
+    },
   });
 });
