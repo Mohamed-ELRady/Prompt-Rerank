@@ -1,5 +1,5 @@
 import { browser, defineBackground } from '#imports';
-import { buildMetaPrompt } from '@/core/meta-prompt';
+import { analyzePrompt, buildMetaPrompt, type TargetModel } from '@/core';
 import { createLogger } from '@/platform/logging';
 import { registerMessageHandlers } from '@/platform/messaging';
 import { improvePort, type ImproveServerMessage } from '@/platform/messaging/improve-port';
@@ -36,7 +36,7 @@ type ImproveSession = PortSession<
 
 async function runImprove(
   session: ImproveSession,
-  request: { text: string; actionId: string; origin?: string },
+  request: { text: string; actionId: string; origin?: string; targetModel?: TargetModel },
 ): Promise<void> {
   const post = (message: ImproveServerMessage) => {
     session.post(message);
@@ -44,7 +44,15 @@ async function runImprove(
   try {
     const { providerId, config } = await resolveProviderConfig();
     const provider = getProvider(providerId);
-    const meta = buildMetaPrompt({ actionId: request.actionId, text: request.text });
+    // Analysis-guided rewriting (FR-C2): the LLM fixes identified weaknesses
+    // instead of rewriting blindly.
+    const analysis = analyzePrompt(request.text);
+    const meta = buildMetaPrompt({
+      actionId: request.actionId,
+      text: request.text,
+      analysis,
+      targetModel: request.targetModel,
+    });
 
     // Widened type: mutated inside the onChunk closure, which narrowing misses.
     let streamedAny = false as boolean;
@@ -130,6 +138,7 @@ export default defineBackground(() => {
 
   registerMessageHandlers({
     ping: () => Promise.resolve({ ok: true, version: browser.runtime.getManifest().version }),
+    analyze: ({ text }) => Promise.resolve(analyzePrompt(text)),
     'settings.get': () => settingsRepo.get(),
     'settings.update': ({ patch }) => settingsRepo.update((current) => ({ ...current, ...patch })),
     'providers.list': async () => ({

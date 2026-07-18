@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { promptAnalysisSchema } from '@/core/types';
 import { settingsSchema } from '../storage/settings';
 
 /**
@@ -16,6 +17,11 @@ export const messageDefinitions = {
   ping: {
     input: z.object({}),
     output: z.object({ ok: z.literal(true), version: z.string() }),
+  },
+  /** Local deterministic analysis (FR-C1) — instant, no provider involved. */
+  analyze: {
+    input: z.object({ text: z.string().min(1).max(50_000) }),
+    output: promptAnalysisSchema,
   },
   'settings.get': {
     input: z.object({}),

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { targetModelSchema } from '@/core/types';
 import { definePortProtocol } from './port';
 
 /**
@@ -23,6 +24,8 @@ export const improveClientMessage = z.discriminatedUnion('type', [
     actionId: z.string(),
     /** page origin, for history attribution and per-site rules */
     origin: z.string().optional(),
+    /** site-derived hint; the action's own target model wins (M5 wires this) */
+    targetModel: targetModelSchema.optional(),
   }),
 ]);
 

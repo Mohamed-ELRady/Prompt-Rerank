@@ -7,6 +7,25 @@ import { defaultSettings } from '../storage/settings';
 function registerTestHandlers(overrides: Partial<MessageHandlers> = {}): MessageHandlers {
   const handlers: MessageHandlers = {
     ping: vi.fn(() => Promise.resolve({ ok: true as const, version: '0.0.0' })),
+    analyze: vi.fn(() =>
+      Promise.resolve({
+        taskType: 'general' as const,
+        complexity: 'simple' as const,
+        wordCount: 0,
+        score: {
+          overall: 100,
+          byDimension: {
+            clarity: 100,
+            specificity: 100,
+            context: 100,
+            constraints: 100,
+            outputSpec: 100,
+            structure: 100,
+          },
+        },
+        findings: [],
+      }),
+    ),
     'settings.get': vi.fn(() => Promise.resolve(defaultSettings)),
     'settings.update': vi.fn(({ patch }) => Promise.resolve({ ...defaultSettings, ...patch })),
     'providers.list': vi.fn(() => Promise.resolve({ providers: [] })),
