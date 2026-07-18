@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { sendMessage, type MessageOutput } from '@/platform/messaging';
 import { type Settings } from '@/platform/storage';
+import { useTheme } from '@/ui/useTheme';
 import { AdvancedView } from './AdvancedView';
 import { HistoryView } from './HistoryView';
 import { TemplatesView } from './TemplatesView';
@@ -19,6 +20,8 @@ export function OptionsApp() {
   const [tab, setTab] = useState<TabId>('providers');
   const [settings, setSettings] = useState<Settings>();
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  const [welcome, setWelcome] = useState(() => location.hash === '#welcome');
+  useTheme(settings?.theme);
 
   useEffect(() => {
     void Promise.all([sendMessage('settings.get', {}), sendMessage('providers.list', {})]).then(
@@ -44,101 +47,139 @@ export function OptionsApp() {
   const active = providers.find((p) => p.id === settings.provider.activeId);
 
   return (
-    <main className="mx-auto max-w-2xl space-y-8 p-8">
-      <header>
-        <h1 className="text-2xl font-semibold">PromptPolish Settings</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Your API keys stay on this device and are only ever sent to the provider you choose.
-        </p>
-      </header>
+    <div className="min-h-screen bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+      <main className="mx-auto max-w-2xl space-y-8 p-8">
+        <header>
+          <h1 className="text-2xl font-semibold">PromptPolish Settings</h1>
+          <p className="mt-1 text-sm text-neutral-500">
+            Your API keys stay on this device and are only ever sent to the provider you choose.
+          </p>
+        </header>
 
-      <nav className="flex gap-1 border-b border-neutral-200" aria-label="Settings sections">
-        {TABS.map((entry) => (
-          <button
-            key={entry.id}
-            type="button"
-            aria-current={tab === entry.id ? 'page' : undefined}
-            className={`rounded-t-md px-3 py-1.5 text-sm ${
-              tab === entry.id
-                ? 'border border-b-0 border-neutral-200 bg-white font-medium text-violet-700'
-                : 'text-neutral-500 hover:text-neutral-800'
-            }`}
-            onClick={() => {
-              setTab(entry.id);
-            }}
+        {welcome && (
+          <section
+            aria-label="Getting started"
+            className="rounded-lg border border-violet-200 bg-violet-50 p-4 text-sm dark:border-violet-800 dark:bg-violet-950/40"
           >
-            {entry.label}
-          </button>
-        ))}
-      </nav>
-
-      {tab === 'history' && <HistoryView />}
-      {tab === 'templates' && <TemplatesView />}
-      {tab === 'advanced' && <AdvancedView />}
-
-      {tab !== 'providers' ? null : (
-        <>
-          <section className="space-y-4" aria-labelledby="provider-heading">
-            <h2 id="provider-heading" className="text-lg font-medium">
-              AI Provider
-            </h2>
-            <div className="text-sm">
-              <label htmlFor="provider-select" className="mb-1 block font-medium">
-                Provider
-              </label>
-              <select
-                id="provider-select"
-                className="w-full rounded-md border border-neutral-300 p-2"
-                value={settings.provider.activeId}
-                onChange={(e) => {
-                  void patchSettings({
-                    provider: { ...settings.provider, activeId: e.target.value },
-                  });
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="font-semibold text-violet-800 dark:text-violet-300">
+                  Welcome to PromptPolish 👋
+                </h2>
+                <ol className="mt-2 list-decimal space-y-1 pl-5 text-neutral-700 dark:text-neutral-200">
+                  <li>
+                    Pick an AI provider below — Ollama and LM Studio work locally with no key.
+                  </li>
+                  <li>Paste an API key if the provider needs one, then hit “Test connection”.</li>
+                  <li>
+                    On any AI site, select your prompt text and click <strong>Improve</strong> in
+                    the toolbar that appears.
+                  </li>
+                </ol>
+              </div>
+              <button
+                type="button"
+                aria-label="Dismiss welcome"
+                className="rounded px-1.5 text-neutral-500 hover:bg-violet-100 dark:hover:bg-violet-900/40"
+                onClick={() => {
+                  setWelcome(false);
+                  history.replaceState(null, '', location.pathname);
                 }}
               >
-                {providers.map((provider) => (
-                  <option key={provider.id} value={provider.id}>
-                    {provider.label}
-                  </option>
-                ))}
-              </select>
+                ✕
+              </button>
             </div>
-            {active && (
-              <ProviderConfigPanel
-                key={active.id}
-                provider={active}
-                settings={settings}
-                onPatch={patchSettings}
-                onVaultChange={refreshProviders}
-              />
-            )}
           </section>
+        )}
 
-          <section className="space-y-4" aria-labelledby="appearance-heading">
-            <h2 id="appearance-heading" className="text-lg font-medium">
-              Appearance
-            </h2>
-            <div className="text-sm">
-              <label htmlFor="theme-select" className="mb-1 block font-medium">
-                Theme
-              </label>
-              <select
-                id="theme-select"
-                className="w-full rounded-md border border-neutral-300 p-2"
-                value={settings.theme}
-                onChange={(e) => {
-                  void patchSettings({ theme: e.target.value as Settings['theme'] });
-                }}
-              >
-                <option value="system">Follow system</option>
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-              </select>
-            </div>
-          </section>
-        </>
-      )}
-    </main>
+        <nav className="flex gap-1 border-b border-neutral-200" aria-label="Settings sections">
+          {TABS.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              aria-current={tab === entry.id ? 'page' : undefined}
+              className={`rounded-t-md px-3 py-1.5 text-sm ${
+                tab === entry.id
+                  ? 'border border-b-0 border-neutral-200 bg-white font-medium text-violet-700'
+                  : 'text-neutral-500 hover:text-neutral-800'
+              }`}
+              onClick={() => {
+                setTab(entry.id);
+              }}
+            >
+              {entry.label}
+            </button>
+          ))}
+        </nav>
+
+        {tab === 'history' && <HistoryView />}
+        {tab === 'templates' && <TemplatesView />}
+        {tab === 'advanced' && <AdvancedView />}
+
+        {tab !== 'providers' ? null : (
+          <>
+            <section className="space-y-4" aria-labelledby="provider-heading">
+              <h2 id="provider-heading" className="text-lg font-medium">
+                AI Provider
+              </h2>
+              <div className="text-sm">
+                <label htmlFor="provider-select" className="mb-1 block font-medium">
+                  Provider
+                </label>
+                <select
+                  id="provider-select"
+                  className="w-full rounded-md border border-neutral-300 p-2"
+                  value={settings.provider.activeId}
+                  onChange={(e) => {
+                    void patchSettings({
+                      provider: { ...settings.provider, activeId: e.target.value },
+                    });
+                  }}
+                >
+                  {providers.map((provider) => (
+                    <option key={provider.id} value={provider.id}>
+                      {provider.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {active && (
+                <ProviderConfigPanel
+                  key={active.id}
+                  provider={active}
+                  settings={settings}
+                  onPatch={patchSettings}
+                  onVaultChange={refreshProviders}
+                />
+              )}
+            </section>
+
+            <section className="space-y-4" aria-labelledby="appearance-heading">
+              <h2 id="appearance-heading" className="text-lg font-medium">
+                Appearance
+              </h2>
+              <div className="text-sm">
+                <label htmlFor="theme-select" className="mb-1 block font-medium">
+                  Theme
+                </label>
+                <select
+                  id="theme-select"
+                  className="w-full rounded-md border border-neutral-300 p-2"
+                  value={settings.theme}
+                  onChange={(e) => {
+                    void patchSettings({ theme: e.target.value as Settings['theme'] });
+                  }}
+                >
+                  <option value="system">Follow system</option>
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                </select>
+              </div>
+            </section>
+          </>
+        )}
+      </main>
+    </div>
   );
 }
 

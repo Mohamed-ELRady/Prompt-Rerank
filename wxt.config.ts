@@ -7,9 +7,9 @@ export default defineConfig({
   // Explicit imports only — auto-imports hide dependencies and confuse tooling.
   imports: false,
   manifest: {
-    name: 'PromptPolish',
-    description:
-      'AI prompt optimization assistant — analyze, strengthen, and rewrite prompts for any AI model.',
+    name: '__MSG_extName__',
+    description: '__MSG_extDescription__',
+    default_locale: 'en',
     permissions: ['storage', 'clipboardWrite'],
     web_accessible_resources: [
       {

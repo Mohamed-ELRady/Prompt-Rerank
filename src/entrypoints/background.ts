@@ -117,11 +117,12 @@ export default defineBackground(() => {
     // Reading + rewriting runs pending migrations once per update instead of
     // lazily on first use.
     void settingsRepo.get().then((settings) => settingsRepo.set(settings));
-    // Seed the starter library exactly once (FR-F2).
+    // Seed the starter library exactly once and open onboarding (FR-F2).
     if (details.reason === 'install') {
       void templatesRepo.update(({ templates }) =>
         templates.length === 0 ? { templates: starterTemplates } : { templates },
       );
+      void browser.tabs.create({ url: `${browser.runtime.getURL('/options.html')}#welcome` });
     }
   });
 

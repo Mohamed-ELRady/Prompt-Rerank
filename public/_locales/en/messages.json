@@ -1,0 +1,10 @@
+{
+  "extName": {
+    "message": "PromptPolish",
+    "description": "Extension name shown in the browser toolbar and store."
+  },
+  "extDescription": {
+    "message": "AI prompt optimization assistant — analyze, strengthen, and rewrite prompts for any AI model.",
+    "description": "Extension description shown in the store and extensions page."
+  }
+}

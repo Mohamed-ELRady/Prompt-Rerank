@@ -45,6 +45,16 @@ export interface FloatingAppHandle {
 export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_props, ref) {
   const [state, setState] = useState<UiState>({ phase: 'hidden' });
   const disconnectRef = useRef<(() => void) | null>(null);
+  const panelRef = useRef<HTMLElement | null>(null);
+
+  // Move focus into the panel when a run starts, so keyboard and screen-
+  // reader users land on the live result region (FR-A7).
+  const streamingStarted = state.phase === 'streaming';
+  useEffect(() => {
+    if (streamingStarted) {
+      panelRef.current?.focus();
+    }
+  }, [streamingStarted]);
 
   useImperativeHandle(ref, () => ({
     showToolbar(target, rect) {
@@ -166,7 +176,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
       <div
         role="toolbar"
         aria-label="PromptPolish actions"
-        className="fixed z-[2147483647] flex items-center gap-1 rounded-lg border border-neutral-200 bg-white p-1 font-sans shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
+        className="pp-pop-in fixed z-[2147483647] flex items-center gap-1 rounded-lg border border-neutral-200 bg-white p-1 font-sans shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
         style={{ top, left }}
       >
         <span className="px-1.5 text-xs font-semibold text-violet-600 dark:text-violet-400">
@@ -236,8 +246,10 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
 
   return (
     <section
+      ref={panelRef}
+      tabIndex={-1}
       aria-label="PromptPolish result"
-      className="fixed z-[2147483647] w-[26rem] rounded-lg border border-neutral-200 bg-white p-3 font-sans shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+      className="pp-pop-in fixed z-[2147483647] w-[26rem] rounded-lg border border-neutral-200 bg-white p-3 font-sans text-neutral-900 shadow-xl outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
       style={{ top: panelTop, left: panelLeft }}
     >
       <header className="mb-2 flex items-center justify-between">

@@ -1,1 +1,40 @@
 @import 'tailwindcss';
+
+/* dark: follows the data-theme attribute (set from settings; "system"
+   resolves via matchMedia in src/ui/theme.ts) instead of the OS default,
+   so the user's explicit choice always wins (FR-A7). */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* Entry animations for the floating UI; disabled for reduced-motion users. */
+@keyframes pp-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.pp-pop-in {
+  animation: pp-pop-in 120ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-pop-in {
+    animation: none;
+  }
+}
+
+/* Baseline dark-mode form styling so every input/select/textarea across the
+   extension pages is legible without per-element dark: classes. */
+@layer base {
+  [data-theme='dark'] input,
+  [data-theme='dark'] textarea,
+  [data-theme='dark'] select {
+    background-color: var(--color-neutral-900);
+    border-color: var(--color-neutral-700);
+    color: var(--color-neutral-100);
+  }
+}

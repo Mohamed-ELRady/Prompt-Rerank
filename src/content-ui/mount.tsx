@@ -1,6 +1,8 @@
 import ReactDOM from 'react-dom/client';
 import { browser, type ContentScriptContext } from '#imports';
 import '@/assets/tailwind.css';
+import { sendMessage } from '@/platform/messaging/messenger';
+import { applyTheme } from '@/ui/theme';
 import { targetAnchorRect } from '@/site-adapters/generic/capture';
 import { type CapturedTarget } from '@/site-adapters/types';
 import { FloatingApp, type FloatingAppHandle } from './FloatingApp';
@@ -34,6 +36,11 @@ export async function createUi(ctx: ContentScriptContext): Promise<UiController>
   const container = document.createElement('div');
   shadow.append(container);
   document.body.append(host);
+
+  // Theme inside the shadow world follows the user's setting (FR-A7).
+  void sendMessage('settings.get', {}).then((settings) => {
+    applyTheme(container, settings.theme);
+  });
 
   let handle: FloatingAppHandle | null = null;
   // root.render commits asynchronously; notifications arriving before the

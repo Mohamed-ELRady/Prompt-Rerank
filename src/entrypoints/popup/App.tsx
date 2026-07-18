@@ -5,6 +5,7 @@ import { sendMessage } from '@/platform/messaging';
 import { improvePort } from '@/platform/messaging/improve-port';
 import { connectPort } from '@/platform/messaging/port';
 import { type HistoryEntry } from '@/platform/storage';
+import { useTheme } from '@/ui/useTheme';
 
 const quickActions = actions.filter((a) => a.group === 'primary' && a.producesRewrite);
 
@@ -21,9 +22,15 @@ export function App() {
   const [recents, setRecents] = useState<HistoryEntry[]>([]);
   const disconnectRef = useRef<(() => void) | null>(null);
 
+  const [theme, setTheme] = useState<'system' | 'light' | 'dark'>();
+  useTheme(theme);
+
   useEffect(() => {
     void sendMessage('history.list', {}).then(({ entries }) => {
       setRecents(entries.slice(0, 5));
+    });
+    void sendMessage('settings.get', {}).then((settings) => {
+      setTheme(settings.theme);
     });
     return () => {
       disconnectRef.current?.();
@@ -58,7 +65,7 @@ export function App() {
   };
 
   return (
-    <main className="w-96 space-y-3 p-4">
+    <main className="w-96 space-y-3 bg-white p-4 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
       <header className="flex items-center justify-between">
         <h1 className="text-base font-semibold text-violet-700">PromptPolish</h1>
         <button
