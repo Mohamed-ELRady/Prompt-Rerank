@@ -2,7 +2,7 @@
   "name": "promptpolish",
   "description": "AI prompt optimization assistant — Grammarly for AI prompts",
   "private": true,
-  "version": "0.1.0-alpha.0",
+  "version": "0.2.0-alpha.0",
   "type": "module",
   "engines": {
     "node": ">=20"
