@@ -22,6 +22,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "budget": "node scripts/check-bundle-budget.mjs",
     "prepare": "husky"
   },
   "dependencies": {

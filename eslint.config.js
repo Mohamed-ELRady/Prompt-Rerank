@@ -117,9 +117,18 @@ export default tseslint.config(
     },
   },
   {
-    // Config files run in node without a project reference.
-    files: ['*.config.{js,ts}', 'e2e/**/*.ts'],
+    // Config files and node scripts run without a project reference.
+    files: ['*.config.{js,ts}', 'e2e/**/*.ts', '**/*.mjs'],
     extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        URL: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+      },
+    },
   },
   prettierConfig,
 );

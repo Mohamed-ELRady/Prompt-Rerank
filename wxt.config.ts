@@ -10,7 +10,20 @@ export default defineConfig({
     name: 'PromptPolish',
     description:
       'AI prompt optimization assistant — analyze, strengthen, and rewrite prompts for any AI model.',
-    permissions: ['storage'],
+    permissions: ['storage', 'clipboardWrite'],
+    web_accessible_resources: [
+      {
+        // lazy UI chunk + its stylesheet, imported by the content watcher (SDD §8)
+        resources: ['content-ui.js', 'assets/content-ui.css'],
+        matches: ['http://*/*', 'https://*/*'],
+      },
+    ],
+    commands: {
+      'improve-selection': {
+        suggested_key: { default: 'Ctrl+Shift+U', mac: 'Command+Shift+U' },
+        description: 'Improve the selected prompt text',
+      },
+    },
     // Background-only fetch targets for the bundled providers (SDD §7).
     // Custom self-hosted base URLs will use optional host permissions later.
     host_permissions: [
