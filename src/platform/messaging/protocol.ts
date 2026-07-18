@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { promptAnalysisSchema } from '@/core/types';
+import { historyEntrySchema } from '../storage/history';
 import { settingsSchema } from '../storage/settings';
+import { templateSchema } from '../storage/templates';
 
 /**
  * Single source of truth for request/response messages (SDD §5.4).
@@ -71,6 +73,45 @@ export const messageDefinitions = {
   'vault.delete': {
     input: z.object({ providerId: z.string() }),
     output: z.object({}),
+  },
+  'history.list': {
+    input: z.object({}),
+    output: z.object({ entries: z.array(historyEntrySchema) }),
+  },
+  'history.toggleFavorite': {
+    input: z.object({ id: z.string() }),
+    output: z.object({}),
+  },
+  'history.delete': {
+    input: z.object({ id: z.string() }),
+    output: z.object({}),
+  },
+  'history.clear': {
+    input: z.object({}),
+    output: z.object({}),
+  },
+  'templates.list': {
+    input: z.object({}),
+    output: z.object({ templates: z.array(templateSchema) }),
+  },
+  'templates.save': {
+    input: z.object({ template: templateSchema }),
+    output: z.object({ templates: z.array(templateSchema) }),
+  },
+  'templates.delete': {
+    input: z.object({ id: z.string() }),
+    output: z.object({ templates: z.array(templateSchema) }),
+  },
+  'data.export': {
+    input: z.object({}),
+    output: z.object({ json: z.string() }),
+  },
+  'data.import': {
+    input: z.object({ json: z.string() }),
+    output: z.discriminatedUnion('ok', [
+      z.object({ ok: z.literal(true) }),
+      z.object({ ok: z.literal(false), message: z.string() }),
+    ]),
   },
 } as const;
 

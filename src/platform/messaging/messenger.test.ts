@@ -5,7 +5,9 @@ import { registerMessageHandlers, sendMessage, type MessageHandlers } from './me
 import { defaultSettings } from '../storage/settings';
 
 function registerTestHandlers(overrides: Partial<MessageHandlers> = {}): MessageHandlers {
-  const handlers: MessageHandlers = {
+  // Stubs for the handlers these tests exercise; the cast below spares this
+  // helper from growing a stub for every new protocol message.
+  const stubs = {
     ping: vi.fn(() => Promise.resolve({ ok: true as const, version: '0.0.0' })),
     analyze: vi.fn(() =>
       Promise.resolve({
@@ -37,6 +39,7 @@ function registerTestHandlers(overrides: Partial<MessageHandlers> = {}): Message
     'vault.delete': vi.fn(() => Promise.resolve({})),
     ...overrides,
   };
+  const handlers = stubs as MessageHandlers;
   registerMessageHandlers(handlers);
   return handlers;
 }
