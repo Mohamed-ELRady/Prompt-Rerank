@@ -1,10 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
 import { sendMessage, type MessageOutput } from '@/platform/messaging';
 import { type Settings } from '@/platform/storage';
+import { AdvancedView } from './AdvancedView';
+import { HistoryView } from './HistoryView';
+import { TemplatesView } from './TemplatesView';
 
 type ProviderInfo = MessageOutput<'providers.list'>['providers'][number];
 
+const TABS = [
+  { id: 'providers', label: 'Provider' },
+  { id: 'history', label: 'History' },
+  { id: 'templates', label: 'Templates' },
+  { id: 'advanced', label: 'Advanced' },
+] as const;
+type TabId = (typeof TABS)[number]['id'];
+
 export function OptionsApp() {
+  const [tab, setTab] = useState<TabId>('providers');
   const [settings, setSettings] = useState<Settings>();
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
 
@@ -40,64 +52,92 @@ export function OptionsApp() {
         </p>
       </header>
 
-      <section className="space-y-4" aria-labelledby="provider-heading">
-        <h2 id="provider-heading" className="text-lg font-medium">
-          AI Provider
-        </h2>
-        <div className="text-sm">
-          <label htmlFor="provider-select" className="mb-1 block font-medium">
-            Provider
-          </label>
-          <select
-            id="provider-select"
-            className="w-full rounded-md border border-neutral-300 p-2"
-            value={settings.provider.activeId}
-            onChange={(e) => {
-              void patchSettings({
-                provider: { ...settings.provider, activeId: e.target.value },
-              });
+      <nav className="flex gap-1 border-b border-neutral-200" aria-label="Settings sections">
+        {TABS.map((entry) => (
+          <button
+            key={entry.id}
+            type="button"
+            aria-current={tab === entry.id ? 'page' : undefined}
+            className={`rounded-t-md px-3 py-1.5 text-sm ${
+              tab === entry.id
+                ? 'border border-b-0 border-neutral-200 bg-white font-medium text-violet-700'
+                : 'text-neutral-500 hover:text-neutral-800'
+            }`}
+            onClick={() => {
+              setTab(entry.id);
             }}
           >
-            {providers.map((provider) => (
-              <option key={provider.id} value={provider.id}>
-                {provider.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        {active && (
-          <ProviderConfigPanel
-            key={active.id}
-            provider={active}
-            settings={settings}
-            onPatch={patchSettings}
-            onVaultChange={refreshProviders}
-          />
-        )}
-      </section>
+            {entry.label}
+          </button>
+        ))}
+      </nav>
 
-      <section className="space-y-4" aria-labelledby="appearance-heading">
-        <h2 id="appearance-heading" className="text-lg font-medium">
-          Appearance
-        </h2>
-        <div className="text-sm">
-          <label htmlFor="theme-select" className="mb-1 block font-medium">
-            Theme
-          </label>
-          <select
-            id="theme-select"
-            className="w-full rounded-md border border-neutral-300 p-2"
-            value={settings.theme}
-            onChange={(e) => {
-              void patchSettings({ theme: e.target.value as Settings['theme'] });
-            }}
-          >
-            <option value="system">Follow system</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
-        </div>
-      </section>
+      {tab === 'history' && <HistoryView />}
+      {tab === 'templates' && <TemplatesView />}
+      {tab === 'advanced' && <AdvancedView />}
+
+      {tab !== 'providers' ? null : (
+        <>
+          <section className="space-y-4" aria-labelledby="provider-heading">
+            <h2 id="provider-heading" className="text-lg font-medium">
+              AI Provider
+            </h2>
+            <div className="text-sm">
+              <label htmlFor="provider-select" className="mb-1 block font-medium">
+                Provider
+              </label>
+              <select
+                id="provider-select"
+                className="w-full rounded-md border border-neutral-300 p-2"
+                value={settings.provider.activeId}
+                onChange={(e) => {
+                  void patchSettings({
+                    provider: { ...settings.provider, activeId: e.target.value },
+                  });
+                }}
+              >
+                {providers.map((provider) => (
+                  <option key={provider.id} value={provider.id}>
+                    {provider.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {active && (
+              <ProviderConfigPanel
+                key={active.id}
+                provider={active}
+                settings={settings}
+                onPatch={patchSettings}
+                onVaultChange={refreshProviders}
+              />
+            )}
+          </section>
+
+          <section className="space-y-4" aria-labelledby="appearance-heading">
+            <h2 id="appearance-heading" className="text-lg font-medium">
+              Appearance
+            </h2>
+            <div className="text-sm">
+              <label htmlFor="theme-select" className="mb-1 block font-medium">
+                Theme
+              </label>
+              <select
+                id="theme-select"
+                className="w-full rounded-md border border-neutral-300 p-2"
+                value={settings.theme}
+                onChange={(e) => {
+                  void patchSettings({ theme: e.target.value as Settings['theme'] });
+                }}
+              >
+                <option value="system">Follow system</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </div>
+          </section>
+        </>
+      )}
     </main>
   );
 }
