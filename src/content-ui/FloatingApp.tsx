@@ -1,16 +1,20 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { actions, type ActionDefinition } from '@/core/actions';
+import { type PromptAnalysis } from '@/core/types';
+import { sendMessage } from '@/platform/messaging/messenger';
 import { connectPort } from '@/platform/messaging/port';
 import { improvePort } from '@/platform/messaging/improve-port';
 import { applyToTarget } from '@/site-adapters/generic/insert';
 import { type CapturedTarget } from '@/site-adapters/types';
+import { AnalysisCard } from './AnalysisCard';
+import { DiffView } from './DiffView';
 
-/** Actions offered in M3; M4 replaces this with the core action registry. */
-const ACTIONS = [
-  { id: 'improve', label: 'Improve' },
-  { id: 'fix', label: 'Fix issues' },
-  { id: 'shorten', label: 'Shorten' },
-  { id: 'expand', label: 'Expand' },
-] as const;
+const primaryActions = actions.filter((a) => a.group === 'primary');
+const menuGroups: { title: string; items: ActionDefinition[] }[] = [
+  { title: 'Refine', items: actions.filter((a) => a.group === 'refine') },
+  { title: 'Optimize for task', items: actions.filter((a) => a.group === 'domain') },
+  { title: 'Optimize for model', items: actions.filter((a) => a.group === 'model') },
+];
 
 interface Anchor {
   top: number;
@@ -18,19 +22,19 @@ interface Anchor {
   left: number;
 }
 
+interface RunContext {
+  target: CapturedTarget;
+  anchor: Anchor;
+  action: ActionDefinition;
+  analysis?: PromptAnalysis;
+}
+
 type UiState =
   | { phase: 'hidden' }
-  | { phase: 'toolbar'; target: CapturedTarget; anchor: Anchor }
-  | { phase: 'streaming'; target: CapturedTarget; anchor: Anchor; actionId: string; text: string }
-  | {
-      phase: 'done';
-      target: CapturedTarget;
-      anchor: Anchor;
-      actionId: string;
-      improved: string;
-      note?: string;
-    }
-  | { phase: 'error'; target: CapturedTarget; anchor: Anchor; actionId: string; message: string };
+  | { phase: 'toolbar'; target: CapturedTarget; anchor: Anchor; menuOpen: boolean }
+  | ({ phase: 'streaming'; text: string } & RunContext)
+  | ({ phase: 'done'; improved: string; view: 'result' | 'diff'; note?: string } & RunContext)
+  | ({ phase: 'error'; message: string } & RunContext);
 
 export interface FloatingAppHandle {
   showToolbar(target: CapturedTarget, rect: DOMRect): void;
@@ -49,6 +53,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
               phase: 'toolbar',
               target,
               anchor: { top: rect.top, bottom: rect.bottom, left: rect.left },
+              menuOpen: false,
             }
           : current,
       );
@@ -76,9 +81,18 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
     };
   }, [close]);
 
-  const run = useCallback((target: CapturedTarget, anchor: Anchor, actionId: string) => {
+  const run = useCallback((target: CapturedTarget, anchor: Anchor, action: ActionDefinition) => {
     disconnectRef.current?.();
-    setState({ phase: 'streaming', target, anchor, actionId, text: '' });
+    setState({ phase: 'streaming', target, anchor, action, text: '' });
+
+    // Local analysis renders instantly while the rewrite streams (SDD §8).
+    void sendMessage('analyze', { text: target.text }).then((analysis) => {
+      setState((current) =>
+        current.phase === 'streaming' || current.phase === 'done' || current.phase === 'error'
+          ? { ...current, analysis }
+          : current,
+      );
+    });
 
     const port = connectPort(improvePort);
     disconnectRef.current = () => {
@@ -96,7 +110,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
         port.disconnect();
         setState((current) =>
           current.phase === 'streaming'
-            ? { phase: 'done', target, anchor, actionId, improved: message.improved }
+            ? { ...current, phase: 'done', improved: message.improved, view: 'result' }
             : current,
         );
       } else {
@@ -104,12 +118,12 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
         port.disconnect();
         setState((current) =>
           current.phase === 'streaming'
-            ? { phase: 'error', target, anchor, actionId, message: message.message }
+            ? { ...current, phase: 'error', message: message.message }
             : current,
         );
       }
     });
-    port.post({ type: 'start', text: target.text, actionId, origin: location.origin });
+    port.post({ type: 'start', text: target.text, actionId: action.id, origin: location.origin });
   }, []);
 
   const apply = useCallback((target: CapturedTarget, improved: string) => {
@@ -133,11 +147,13 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
   }
 
   const { anchor } = state;
-  const viewportW = window.innerWidth;
 
   if (state.phase === 'toolbar') {
     const top = Math.max(anchor.top - 44, 8);
-    const left = Math.min(Math.max(anchor.left, 8), viewportW - 320);
+    const left = Math.min(Math.max(anchor.left, 8), window.innerWidth - 360);
+    const keepSelection = (e: React.MouseEvent) => {
+      e.preventDefault();
+    };
     return (
       <div
         role="toolbar"
@@ -148,38 +164,77 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
         <span className="px-1.5 text-xs font-semibold text-violet-600 dark:text-violet-400">
           PromptPolish
         </span>
-        {ACTIONS.map((action) => (
+        {primaryActions.map((action) => (
           <button
             key={action.id}
             type="button"
             className="rounded-md px-2 py-1 text-xs text-neutral-800 hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800"
-            onMouseDown={(e) => {
-              // keep the page selection/focus alive through the click
-              e.preventDefault();
-            }}
+            onMouseDown={keepSelection}
             onClick={() => {
-              run(state.target, anchor, action.id);
+              run(state.target, anchor, action);
             }}
           >
             {action.label}
           </button>
         ))}
+        <div className="relative">
+          <button
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={state.menuOpen}
+            className="rounded-md px-2 py-1 text-xs text-neutral-800 hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800"
+            onMouseDown={keepSelection}
+            onClick={() => {
+              setState({ ...state, menuOpen: !state.menuOpen });
+            }}
+          >
+            More ▾
+          </button>
+          {state.menuOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 top-7 max-h-80 w-52 overflow-y-auto rounded-lg border border-neutral-200 bg-white py-1 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+            >
+              {menuGroups.map((group) => (
+                <div key={group.title}>
+                  <p className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                    {group.title}
+                  </p>
+                  {group.items.map((action) => (
+                    <button
+                      key={action.id}
+                      type="button"
+                      role="menuitem"
+                      className="block w-full px-3 py-1.5 text-left text-xs text-neutral-800 hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                      onMouseDown={keepSelection}
+                      onClick={() => {
+                        run(state.target, anchor, action);
+                      }}
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
 
-  const panelTop = Math.min(anchor.bottom + 8, window.innerHeight - 260);
-  const panelLeft = Math.min(Math.max(anchor.left, 8), viewportW - 400);
+  const panelTop = Math.max(Math.min(anchor.bottom + 8, window.innerHeight - 320), 8);
+  const panelLeft = Math.min(Math.max(anchor.left, 8), window.innerWidth - 440);
 
   return (
     <section
       aria-label="PromptPolish result"
-      className="fixed z-[2147483647] w-96 rounded-lg border border-neutral-200 bg-white p-3 font-sans shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
-      style={{ top: Math.max(panelTop, 8), left: panelLeft }}
+      className="fixed z-[2147483647] w-[26rem] rounded-lg border border-neutral-200 bg-white p-3 font-sans shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+      style={{ top: panelTop, left: panelLeft }}
     >
       <header className="mb-2 flex items-center justify-between">
         <span className="text-xs font-semibold text-violet-600 dark:text-violet-400">
-          PromptPolish
+          PromptPolish · {state.action.label}
         </span>
         <button
           type="button"
@@ -191,6 +246,8 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
         </button>
       </header>
 
+      {state.analysis && <AnalysisCard analysis={state.analysis} />}
+
       {state.phase === 'error' ? (
         <div>
           <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>
@@ -198,7 +255,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
             <PanelButton
               primary
               onClick={() => {
-                run(state.target, anchor, state.actionId);
+                run(state.target, anchor, state.action);
               }}
             >
               Retry
@@ -208,22 +265,50 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
         </div>
       ) : (
         <div>
-          <output
-            aria-live="polite"
-            className="block max-h-56 overflow-y-auto whitespace-pre-wrap rounded-md bg-neutral-50 p-2 text-sm text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
-          >
-            {state.phase === 'streaming' ? state.text || 'Improving…' : state.improved}
-          </output>
-          {state.phase === 'done' && (
-            <div className="mt-3 flex items-center gap-2">
-              <PanelButton
-                primary
+          {state.phase === 'done' && state.action.producesRewrite && (
+            <div className="mb-2 flex gap-1" role="tablist" aria-label="Result view">
+              <ViewTab
+                selected={state.view === 'result'}
                 onClick={() => {
-                  apply(state.target, state.improved);
+                  setState({ ...state, view: 'result' });
                 }}
               >
-                Apply
-              </PanelButton>
+                Result
+              </ViewTab>
+              <ViewTab
+                selected={state.view === 'diff'}
+                onClick={() => {
+                  setState({ ...state, view: 'diff' });
+                }}
+              >
+                Before / After
+              </ViewTab>
+            </div>
+          )}
+
+          {state.phase === 'done' && state.view === 'diff' ? (
+            <DiffView before={state.target.text} after={state.improved} />
+          ) : (
+            <output
+              aria-live="polite"
+              className="block max-h-56 overflow-y-auto whitespace-pre-wrap rounded-md bg-neutral-50 p-2 text-sm text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
+            >
+              {state.phase === 'streaming' ? state.text || 'Working…' : state.improved}
+            </output>
+          )}
+
+          {state.phase === 'done' && (
+            <div className="mt-3 flex items-center gap-2">
+              {state.action.producesRewrite && (
+                <PanelButton
+                  primary
+                  onClick={() => {
+                    apply(state.target, state.improved);
+                  }}
+                >
+                  Apply
+                </PanelButton>
+              )}
               <PanelButton
                 onClick={() => {
                   void navigator.clipboard.writeText(state.improved);
@@ -233,7 +318,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
               </PanelButton>
               <PanelButton
                 onClick={() => {
-                  run(state.target, anchor, state.actionId);
+                  run(state.target, anchor, state.action);
                 }}
               >
                 Retry
@@ -248,6 +333,32 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
     </section>
   );
 });
+
+function ViewTab({
+  selected,
+  onClick,
+  children,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={selected}
+      className={`rounded-md px-2 py-1 text-xs ${
+        selected
+          ? 'bg-violet-100 font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
+          : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+      }`}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
 
 function PanelButton({
   primary = false,
