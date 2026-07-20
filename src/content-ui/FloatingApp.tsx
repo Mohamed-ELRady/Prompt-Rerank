@@ -49,6 +49,37 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
   const [drag, setDrag] = useState({ x: 0, y: 0 });
   const disconnectRef = useRef<(() => void) | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
+  // Watchdog against a stuck "Working…": if no chunk/done/error arrives within
+  // the idle window (provider not streaming, worker died mid-request, network
+  // black hole), surface an actionable error instead of hanging forever.
+  const watchdogRef = useRef<number | undefined>(undefined);
+
+  const failStuck = useCallback(() => {
+    disconnectRef.current?.();
+    disconnectRef.current = null;
+    setState((current) =>
+      current.phase === 'streaming'
+        ? {
+            ...current,
+            phase: 'error',
+            message:
+              'No response from the AI provider (timed out). Open Settings and check your provider, API key, model name, and Base URL — then Retry.',
+          }
+        : current,
+    );
+  }, []);
+
+  const armWatchdog = useCallback(() => {
+    window.clearTimeout(watchdogRef.current);
+    watchdogRef.current = window.setTimeout(failStuck, 45_000);
+  }, [failStuck]);
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(watchdogRef.current);
+    },
+    [],
+  );
 
   const startDrag = useCallback(
     (event: React.PointerEvent) => {
@@ -111,6 +142,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
   const close = useCallback(() => {
     disconnectRef.current?.();
     disconnectRef.current = null;
+    window.clearTimeout(watchdogRef.current);
     setDrag({ x: 0, y: 0 });
     setState({ phase: 'hidden' });
   }, []);
@@ -127,57 +159,64 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
     };
   }, [close]);
 
-  const run = useCallback((target: CapturedTarget, anchor: Anchor, action: ActionDefinition) => {
-    disconnectRef.current?.();
-    setState({ phase: 'streaming', target, anchor, action, text: '' });
+  const run = useCallback(
+    (target: CapturedTarget, anchor: Anchor, action: ActionDefinition) => {
+      disconnectRef.current?.();
+      armWatchdog();
+      setState({ phase: 'streaming', target, anchor, action, text: '' });
 
-    // Local analysis renders instantly while the rewrite streams (SDD §8).
-    void sendMessage('analyze', { text: target.text }).then((analysis) => {
-      setState((current) =>
-        current.phase === 'streaming' || current.phase === 'done' || current.phase === 'error'
-          ? { ...current, analysis }
-          : current,
-      );
-    });
+      // Local analysis renders instantly while the rewrite streams (SDD §8).
+      void sendMessage('analyze', { text: target.text }).then((analysis) => {
+        setState((current) =>
+          current.phase === 'streaming' || current.phase === 'done' || current.phase === 'error'
+            ? { ...current, analysis }
+            : current,
+        );
+      });
 
-    const port = connectPort(improvePort);
-    disconnectRef.current = () => {
-      port.disconnect();
-    };
-    port.onMessage((message) => {
-      if (message.type === 'chunk') {
-        setState((current) =>
-          current.phase === 'streaming'
-            ? { ...current, text: current.text + message.delta }
-            : current,
-        );
-      } else if (message.type === 'done') {
-        disconnectRef.current = null;
+      const port = connectPort(improvePort);
+      disconnectRef.current = () => {
         port.disconnect();
-        setState((current) =>
-          current.phase === 'streaming'
-            ? { ...current, phase: 'done', improved: message.improved, view: 'result' }
-            : current,
-        );
-      } else {
-        disconnectRef.current = null;
-        port.disconnect();
-        setState((current) =>
-          current.phase === 'streaming'
-            ? { ...current, phase: 'error', message: message.message }
-            : current,
-        );
-      }
-    });
-    port.post({
-      type: 'start',
-      text: target.text,
-      actionId: action.id,
-      origin: location.origin,
-      // e.g. claude.ai → 'claude', so plain Improve is already model-tuned
-      targetModel: findSiteProfile(location.host)?.targetModel,
-    });
-  }, []);
+      };
+      port.onMessage((message) => {
+        if (message.type === 'chunk') {
+          armWatchdog(); // progress: reset the idle timer
+          setState((current) =>
+            current.phase === 'streaming'
+              ? { ...current, text: current.text + message.delta }
+              : current,
+          );
+        } else if (message.type === 'done') {
+          window.clearTimeout(watchdogRef.current);
+          disconnectRef.current = null;
+          port.disconnect();
+          setState((current) =>
+            current.phase === 'streaming'
+              ? { ...current, phase: 'done', improved: message.improved, view: 'result' }
+              : current,
+          );
+        } else {
+          window.clearTimeout(watchdogRef.current);
+          disconnectRef.current = null;
+          port.disconnect();
+          setState((current) =>
+            current.phase === 'streaming'
+              ? { ...current, phase: 'error', message: message.message }
+              : current,
+          );
+        }
+      });
+      port.post({
+        type: 'start',
+        text: target.text,
+        actionId: action.id,
+        origin: location.origin,
+        // e.g. claude.ai → 'claude', so plain Improve is already model-tuned
+        targetModel: findSiteProfile(location.host)?.targetModel,
+      });
+    },
+    [armWatchdog],
+  );
 
   const apply = useCallback((target: CapturedTarget, improved: string) => {
     if (applyToTarget(target, improved) === 'inserted') {
