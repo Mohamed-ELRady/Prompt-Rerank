@@ -25,16 +25,23 @@ export default defineConfig({
       },
     },
     // Background-only fetch targets for the bundled providers (SDD §7).
-    // Custom self-hosted base URLs will use optional host permissions later.
     host_permissions: [
       'https://api.openai.com/*',
       'https://api.anthropic.com/*',
       'https://generativelanguage.googleapis.com/*',
       'https://api.deepseek.com/*',
       'https://openrouter.ai/*',
+      'https://api.groq.com/*',
+      'https://api.x.ai/*',
+      'https://api.mistral.ai/*',
+      'https://api.together.xyz/*',
       'http://localhost/*',
       'http://127.0.0.1/*',
     ],
+    // The "Custom" provider (and any edited Base URL) can point anywhere.
+    // We don't ask for broad access up front — the options page requests
+    // permission for the specific host the first time you test it.
+    optional_host_permissions: ['https://*/*'],
   },
   vite: () => ({
     plugins: [tailwindcss()],

@@ -5,7 +5,9 @@
 1. Open the extension's **Settings** (toolbar icon → Settings, or right-click the icon → Options).
 2. **Provider tab**: choose who rewrites your prompts.
    - **Local, free, private**: Ollama (`OLLAMA_ORIGINS=chrome-extension://* ollama serve`) or LM Studio (enable its local server). No key needed.
-   - **Cloud**: OpenAI, Anthropic, Google Gemini, DeepSeek, or OpenRouter — paste an API key (the hint under the field links to the right console). The key is stored only on this device and sent only to that provider.
+   - **Free API tiers**: Groq, Mistral, xAI (Grok), Together — sign up, grab a free key (the hint under the key field links to the right console), and paste it.
+   - **Cloud**: OpenAI, Anthropic, Google Gemini, DeepSeek, or OpenRouter — paste an API key. The key is stored only on this device and sent only to that provider.
+   - **Custom (any OpenAI-compatible API)**: pick this to use _any_ other provider. Paste its **Base URL** (e.g. `https://api.example.com/v1`), a **model** name, and a key if it needs one. The first time you **Test connection**, Chrome asks permission to reach that host — approve it once and it works everywhere afterward. Almost every modern AI API (including most free ones) is OpenAI-compatible and works here.
 3. Click **Test connection**. Optionally **Load models** and pick one.
 
 ## Improving a prompt

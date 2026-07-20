@@ -1,10 +1,40 @@
 import { useCallback, useEffect, useState } from 'react';
+import { browser } from 'wxt/browser';
 import { sendMessage, type MessageOutput } from '@/platform/messaging';
 import { type Settings } from '@/platform/storage';
 import { useTheme } from '@/ui/useTheme';
 import { AdvancedView } from './AdvancedView';
 import { HistoryView } from './HistoryView';
 import { TemplatesView } from './TemplatesView';
+
+/** "https://api.example.com/v1" → "https://api.example.com/*" match pattern. */
+function originPattern(url: string): string | null {
+  try {
+    return `${new URL(url).origin}/*`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Custom / edited Base URLs point at hosts outside the bundled grant, so we
+ * ask for access to that specific host the first time it's used. Bundled
+ * hosts (and localhost) already have it, so request() resolves instantly with
+ * no prompt. Must be called directly from a click handler (user gesture).
+ */
+async function ensureHostPermission(effectiveBaseUrl: string): Promise<boolean> {
+  const pattern = originPattern(effectiveBaseUrl);
+  if (!pattern) {
+    return true; // let the real request surface a clear "check your Base URL" error
+  }
+  try {
+    return await browser.permissions.request({ origins: [pattern] });
+  } catch {
+    // e.g. http:// hosts Chrome won't grant via optional permissions — let the
+    // fetch attempt proceed and report a normal network error if it fails.
+    return true;
+  }
+}
 
 type ProviderInfo = MessageOutput<'providers.list'>['providers'][number];
 
@@ -224,7 +254,29 @@ function ProviderConfigPanel({
     await onVaultChange();
   };
 
+  const effectiveBaseUrl = config.baseUrl ?? provider.defaultBaseUrl;
+
+  // Ask for host access (and require a Base URL) before any real request.
+  // Returns false + sets an error when we can't proceed.
+  const prepareRequest = async (): Promise<boolean> => {
+    if (effectiveBaseUrl.trim() === '') {
+      setStatus({
+        kind: 'error',
+        text: 'Enter a Base URL first (e.g. https://api.groq.com/openai/v1).',
+      });
+      return false;
+    }
+    if (!(await ensureHostPermission(effectiveBaseUrl))) {
+      setStatus({ kind: 'error', text: 'Permission to reach this host was denied.' });
+      return false;
+    }
+    return true;
+  };
+
   const testConnection = async () => {
+    if (!(await prepareRequest())) {
+      return;
+    }
     setStatus({ kind: 'busy', text: 'Testing connection…' });
     const result = await sendMessage('providers.validate', { providerId: provider.id });
     setStatus(
@@ -235,6 +287,9 @@ function ProviderConfigPanel({
   };
 
   const loadModels = async () => {
+    if (!(await prepareRequest())) {
+      return;
+    }
     setStatus({ kind: 'busy', text: 'Loading models…' });
     const result = await sendMessage('providers.models', { providerId: provider.id });
     if (result.ok) {
