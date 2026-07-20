@@ -3,6 +3,9 @@ name: Release
 on:
   push:
     tags: ['v*']
+  # Fallback: GitHub creates no push events when more than three tags are
+  # pushed at once, so allow re-running a release by hand.
+  workflow_dispatch:
 
 permissions:
   contents: write

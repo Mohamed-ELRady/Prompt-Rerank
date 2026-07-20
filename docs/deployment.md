@@ -8,6 +8,8 @@
 4. Commit `chore(release): vX.Y.Z`, tag `vX.Y.Z`, push with tags.
 5. The **release workflow** (`.github/workflows/release.yml`) builds, runs the bundle budget, zips `.output/chrome-mv3`, and attaches `promptpolish-X.Y.Z-chrome.zip` to a draft GitHub Release. Review and publish.
 
+> ⚠️ Push release tags **one at a time**: GitHub emits no push events when more than three tags are pushed together, so the workflow silently won't run. If that happens, re-push the tag alone (`git push origin :refs/tags/vX.Y.Z && git push origin vX.Y.Z`) or use the workflow's manual dispatch.
+
 ## Chrome Web Store
 
 - Upload the zip from the GitHub Release to the [developer dashboard](https://chrome.google.com/webstore/devconsole) (first upload creates the listing; afterwards `wxt submit` can automate it with `CHROME_*` secrets).
