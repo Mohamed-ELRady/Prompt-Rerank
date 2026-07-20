@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="sparkle" x1="28" y1="6" x2="72" y2="66" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9333ea" />
+      <stop offset="1" stop-color="#6d28d9" />
+    </linearGradient>
+  </defs>
+
+  <!-- stem connecting the sparkle to the toggle -->
+  <rect x="46.5" y="60" width="7" height="24" rx="3.5" fill="#3b82f6" />
+
+  <!-- toggle pill -->
+  <rect x="27" y="74" width="46" height="20" rx="10" fill="#3b82f6" />
+  <rect x="35" y="79.5" width="9" height="9" rx="2.4" fill="#ffffff" />
+
+  <!-- 4-point sparkle -->
+  <path
+    fill="url(#sparkle)"
+    d="M50 6 L54.9 31.1 L72 36 L54.9 40.9 L50 66 L45.1 40.9 L28 36 L45.1 31.1 Z"
+  />
+</svg>
