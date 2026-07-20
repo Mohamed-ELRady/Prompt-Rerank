@@ -3,7 +3,7 @@ import { expect, test } from './fixtures';
 test('extension loads and popup renders', async ({ context, extensionId }) => {
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/popup.html`);
-  await expect(page.getByRole('heading', { name: 'PromptPolish' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Prompt Rerank' })).toBeVisible();
 });
 
 test('options page lists providers and persists settings', async ({ context, extensionId }) => {

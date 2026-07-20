@@ -1,5 +1,5 @@
 import { browser, defineBackground } from '#imports';
-import { analyzePrompt, buildMetaPrompt, type TargetModel } from '@/core';
+import { analyzePrompt, buildMetaPrompt, getAction, type TargetModel } from '@/core';
 import { createLogger } from '@/platform/logging';
 import { registerMessageHandlers } from '@/platform/messaging';
 import { improvePort, type ImproveServerMessage } from '@/platform/messaging/improve-port';
@@ -49,18 +49,22 @@ async function runImprove(
     // Analysis-guided rewriting (FR-C2): the LLM fixes identified weaknesses
     // instead of rewriting blindly.
     const analysis = analyzePrompt(request.text);
+    const action = getAction(request.actionId);
     const meta = buildMetaPrompt({
       actionId: request.actionId,
       text: request.text,
       analysis,
       targetModel: request.targetModel,
     });
+    // Slightly higher default than before so distinct actions diverge more;
+    // per-action overrides (e.g. Better alternative) push it further.
+    const temperature = action.temperature ?? 0.5;
 
     // Widened type: mutated inside the onChunk closure, which narrowing misses.
     let streamedAny = false as boolean;
     const attempt = () =>
       provider.complete(
-        { system: meta.system, user: meta.user, temperature: 0.3 },
+        { system: meta.system, user: meta.user, temperature },
         config,
         (delta) => {
           streamedAny = true;

@@ -10,7 +10,7 @@ import { App } from './App';
 describe('popup App', () => {
   it('renders the quick-improve surface', async () => {
     render(<App />);
-    expect(screen.getByRole('heading', { name: 'PromptPolish' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Prompt Rerank' })).toBeInTheDocument();
     expect(await screen.findByPlaceholderText('Paste a prompt to improve…')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Improve' })).toBeDisabled();
   });

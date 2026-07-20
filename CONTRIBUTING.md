@@ -1,4 +1,4 @@
-# Contributing to PromptPolish
+# Contributing to Prompt Rerank
 
 Thanks for your interest! This document covers the essentials; the [Software Design Document](docs/02-sdd.md) explains _why_ the codebase looks the way it does — read it before large changes.
 

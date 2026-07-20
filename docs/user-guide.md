@@ -1,4 +1,4 @@
-# PromptPolish User Guide
+# Prompt Rerank User Guide
 
 ## Setup
 
@@ -32,7 +32,7 @@
 ## Privacy & control
 
 - Selected text leaves your machine **only** when you click an action, and only to your configured provider. With Ollama/LM Studio it never leaves at all.
-- Disable PromptPolish on any site by adding its origin to _disabled origins_ in settings.
+- Disable Prompt Rerank on any site by adding its origin to _disabled origins_ in settings.
 - If the result can't be inserted (exotic editor), it's copied to your clipboard and the panel tells you so.
 
 ## Troubleshooting
@@ -41,6 +41,6 @@
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | "The API key was rejected"              | Re-paste the key in Settings; check the provider console that it's active.                                              |
 | "Could not reach the provider"          | Check your network / base URL; for Ollama confirm `ollama serve` is running with `OLLAMA_ORIGINS=chrome-extension://*`. |
-| "rate limiting requests"                | Wait a moment and Retry — PromptPolish already retried once for you.                                                    |
+| "rate limiting requests"                | Wait a moment and Retry — Prompt Rerank already retried once for you.                                                   |
 | Toolbar doesn't appear                  | Confirm the site isn't in disabled origins and the selection is inside an editable field.                               |
 | "The prompt is too long for this model" | Shorten the selection or pick a larger-context model.                                                                   |

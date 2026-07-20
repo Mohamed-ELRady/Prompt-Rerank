@@ -80,7 +80,7 @@ export function OptionsApp() {
     <div className="min-h-screen bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
       <main className="mx-auto max-w-2xl space-y-8 p-8">
         <header>
-          <h1 className="text-2xl font-semibold">PromptPolish Settings</h1>
+          <h1 className="text-2xl font-semibold">Prompt Rerank Settings</h1>
           <p className="mt-1 text-sm text-neutral-500">
             Your API keys stay on this device and are only ever sent to the provider you choose.
           </p>
@@ -94,7 +94,7 @@ export function OptionsApp() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="font-semibold text-violet-800 dark:text-violet-300">
-                  Welcome to PromptPolish 👋
+                  Welcome to Prompt Rerank 👋
                 </h2>
                 <ol className="mt-2 list-decimal space-y-1 pl-5 text-neutral-700 dark:text-neutral-200">
                   <li>

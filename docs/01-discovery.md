@@ -1,6 +1,6 @@
 # Phase 1 — Discovery
 
-**Project:** PromptPolish _(working title — easy to rename later; nothing in the architecture depends on it)_
+**Project:** Prompt Rerank _(working title — easy to rename later; nothing in the architecture depends on it)_
 **Document status:** Draft for approval
 **Date:** 2026-07-17
 

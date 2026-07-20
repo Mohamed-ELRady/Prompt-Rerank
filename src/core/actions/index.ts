@@ -18,6 +18,15 @@ export interface ActionDefinition {
   strategy: string;
   /** pre-set target model for "Optimize for <model>" actions */
   targetModel?: TargetModel;
+  /**
+   * Whether to append the generic "add role / format / examples / sections"
+   * best-practice block. Off for focused actions (shorten, fix, professional)
+   * where it would fight the strategy and make every action look the same.
+   * Defaults to true for rewrite actions.
+   */
+  applyBestPractices?: boolean;
+  /** overrides the default sampling temperature for this action */
+  temperature?: number;
 }
 
 const improveAction: ActionDefinition = {
@@ -44,8 +53,9 @@ export const actions: ActionDefinition[] = [
     label: 'Fix issues',
     group: 'primary',
     producesRewrite: true,
+    applyBestPractices: false,
     strategy:
-      'Fix only the identified weaknesses (ambiguity, contradictions, missing specifications) with minimal other changes to wording and length.',
+      'Fix ONLY the identified weaknesses (ambiguity, contradictions, missing specifications). Make the smallest edits possible: keep the original wording, structure, and length as close to the original as you can. Do not add a role, examples, or new sections unless one directly fixes a listed weakness.',
   },
   {
     id: 'explain',
@@ -60,31 +70,36 @@ export const actions: ActionDefinition[] = [
     label: 'Rewrite professionally',
     group: 'refine',
     producesRewrite: true,
+    applyBestPractices: false,
     strategy:
-      'Rewrite the prompt in precise professional language while keeping every requirement intact.',
+      'Rewrite the prompt in precise, professional, formal language. Keep the SAME requirements, structure, and roughly the same length — only elevate the wording, tone, and clarity. Do not add new sections, examples, or requirements.',
   },
   {
     id: 'expand',
     label: 'Expand',
     group: 'refine',
     producesRewrite: true,
+    applyBestPractices: false,
     strategy:
-      'Expand the prompt with the structure a strong prompt should state — context, requirements, constraints, output expectations — without inventing new requirements.',
+      'Expand the prompt so it is clearly LONGER and more detailed than the original: spell out context, requirements, constraints, and output expectations as separate labeled sections. Do not invent new requirements — elaborate on what is implied, using [placeholders] for missing specifics.',
   },
   {
     id: 'shorten',
     label: 'Shorten',
     group: 'refine',
     producesRewrite: true,
-    strategy: 'Rewrite the prompt as concisely as possible without losing any requirement.',
+    applyBestPractices: false,
+    strategy:
+      'Rewrite the prompt so it is clearly SHORTER than the original — aim for roughly half the length or less. Strip filler, redundancy, and pleasantries; keep only the essential instruction and any hard requirements. The result must be noticeably more compact.',
   },
   {
     id: 'alternative',
     label: 'Better alternative',
     group: 'refine',
     producesRewrite: true,
+    temperature: 0.8,
     strategy:
-      'Propose a substantially different, better-engineered formulation that achieves the same goal — restructure freely (role, steps, examples, output contract) while preserving the objective.',
+      'Propose a SUBSTANTIALLY DIFFERENT, better-engineered formulation that achieves the same goal. Do not lightly edit the original — restructure it from scratch (different angle, role, ordering, or framing) while preserving the objective. It should read as a genuinely fresh alternative.',
   },
   {
     id: 'optimize-coding',

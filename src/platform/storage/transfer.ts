@@ -38,7 +38,7 @@ export async function importData(
   }
   const file = exportFileSchema.safeParse(parsed);
   if (!file.success) {
-    return { ok: false, message: 'Not a valid PromptPolish export file.' };
+    return { ok: false, message: 'Not a valid Prompt Rerank export file.' };
   }
   await settingsRepo.set(file.data.settings);
   await templatesRepo.update(({ templates }) => {

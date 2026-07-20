@@ -1,6 +1,6 @@
 # Phase 2 — Software Design Document (SDD)
 
-**Project:** PromptPolish _(working title)_
+**Project:** Prompt Rerank _(working title)_
 **Document status:** Draft for approval
 **Date:** 2026-07-17
 
@@ -8,7 +8,7 @@
 
 ## 1. System overview
 
-PromptPolish is a Manifest V3 browser extension with four runtime surfaces sharing one domain core:
+Prompt Rerank is a Manifest V3 browser extension with four runtime surfaces sharing one domain core:
 
 ```
 ┌─────────────────────────── Host web page ────────────────────────────┐

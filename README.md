@@ -1,6 +1,6 @@
-# PromptPolish
+# Prompt Rerank
 
-**Grammarly for AI prompts.** Select a prompt in ChatGPT, Claude, Gemini — or any editable field on the web — and PromptPolish analyzes it, scores it, and rewrites it using modern prompt-engineering practice, while preserving exactly what you meant.
+**Grammarly for AI prompts.** Select a prompt in ChatGPT, Claude, Gemini — or any editable field on the web — and Prompt Rerank analyzes it, scores it, and rewrites it using modern prompt-engineering practice, while preserving exactly what you meant.
 
 - 🔍 **Prompt Intelligence Engine** — instant local analysis: quality score (0–100), task type, and typed findings (missing output format, vague wording, contradictions, walls of text, …). No network call, no cost.
 - ✨ **16 actions** — Improve, Make More Powerful, Fix Issues, Explain Weaknesses, Rewrite Professionally, Expand, Shorten, Better Alternative, and Optimize-for (Coding / Writing / Research / Business / Education / ChatGPT / Claude / Gemini).

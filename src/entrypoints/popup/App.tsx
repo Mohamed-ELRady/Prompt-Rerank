@@ -67,7 +67,7 @@ export function App() {
   return (
     <main className="w-96 space-y-3 bg-white p-4 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
       <header className="flex items-center justify-between">
-        <h1 className="text-base font-semibold text-violet-700">PromptPolish</h1>
+        <h1 className="text-base font-semibold text-violet-700">Prompt Rerank</h1>
         <button
           type="button"
           className="text-xs text-neutral-500 underline"

@@ -61,11 +61,11 @@ test('improve → apply replaces selection in a plain textarea', async ({ contex
   await page.goto('http://localhost:8787/plain.html');
 
   await selectAllIn(page, '#ta');
-  const toolbar = page.getByRole('toolbar', { name: 'PromptPolish actions' });
+  const toolbar = page.getByRole('toolbar', { name: 'Prompt Rerank actions' });
   await expect(toolbar).toBeVisible();
 
   await toolbar.getByRole('button', { name: 'Improve' }).click();
-  const panel = page.getByRole('region', { name: 'PromptPolish result' });
+  const panel = page.getByRole('region', { name: 'Prompt Rerank result' });
   await expect(panel).toContainText(MOCK_IMPROVED);
 
   await panel.getByRole('button', { name: 'Apply' }).click();
@@ -78,11 +78,11 @@ test('improve → apply works in contenteditable', async ({ context }) => {
   await page.goto('http://localhost:8787/plain.html');
 
   await selectAllIn(page, '#ce');
-  const toolbar = page.getByRole('toolbar', { name: 'PromptPolish actions' });
+  const toolbar = page.getByRole('toolbar', { name: 'Prompt Rerank actions' });
   await expect(toolbar).toBeVisible();
 
   await toolbar.getByRole('button', { name: 'Improve' }).click();
-  const panel = page.getByRole('region', { name: 'PromptPolish result' });
+  const panel = page.getByRole('region', { name: 'Prompt Rerank result' });
   await expect(panel).toContainText(MOCK_IMPROVED);
 
   await panel.getByRole('button', { name: 'Apply' }).click();
@@ -94,11 +94,11 @@ test('insertion sticks in a framework-controlled field', async ({ context }) => 
   await page.goto('http://localhost:8787/controlled.html');
 
   await selectAllIn(page, '#controlled');
-  const toolbar = page.getByRole('toolbar', { name: 'PromptPolish actions' });
+  const toolbar = page.getByRole('toolbar', { name: 'Prompt Rerank actions' });
   await expect(toolbar).toBeVisible();
   await toolbar.getByRole('button', { name: 'Improve' }).click();
 
-  const panel = page.getByRole('region', { name: 'PromptPolish result' });
+  const panel = page.getByRole('region', { name: 'Prompt Rerank result' });
   await panel.getByRole('button', { name: 'Apply' }).click();
   await expect(page.locator('#controlled')).toHaveValue(MOCK_IMPROVED);
   // outlive two "render" ticks of the fake framework — a naive write reverts
@@ -111,11 +111,11 @@ test('insertion sticks in a framework-controlled contenteditable editor', async 
   await page.goto('http://localhost:8787/editor-ce.html');
 
   await selectAllIn(page, '#editor');
-  const toolbar = page.getByRole('toolbar', { name: 'PromptPolish actions' });
+  const toolbar = page.getByRole('toolbar', { name: 'Prompt Rerank actions' });
   await expect(toolbar).toBeVisible();
   await toolbar.getByRole('button', { name: 'Improve' }).click();
 
-  const panel = page.getByRole('region', { name: 'PromptPolish result' });
+  const panel = page.getByRole('region', { name: 'Prompt Rerank result' });
   await expect(panel).toContainText(MOCK_IMPROVED);
   await panel.getByRole('button', { name: 'Apply' }).click();
   await expect(page.locator('#editor')).toContainText(MOCK_IMPROVED);
@@ -139,5 +139,5 @@ test('toolbar does not appear for non-editable selections', async ({ context }) 
     }
   });
   await page.waitForTimeout(400); // longer than the watcher debounce
-  await expect(page.getByRole('toolbar', { name: 'PromptPolish actions' })).toHaveCount(0);
+  await expect(page.getByRole('toolbar', { name: 'Prompt Rerank actions' })).toHaveCount(0);
 });

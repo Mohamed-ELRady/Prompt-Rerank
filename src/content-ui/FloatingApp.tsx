@@ -249,12 +249,12 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
     return (
       <div
         role="toolbar"
-        aria-label="PromptPolish actions"
+        aria-label="Prompt Rerank actions"
         className="pp-pop-in fixed z-[2147483647] flex items-center gap-1 rounded-lg border border-neutral-200 bg-white p-1 font-sans shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
         style={{ top, left }}
       >
         <span className="px-1.5 text-xs font-semibold text-violet-600 dark:text-violet-400">
-          PromptPolish
+          Prompt Rerank
         </span>
         {primaryActions.map((action) => (
           <button
@@ -326,7 +326,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
     <section
       ref={panelRef}
       tabIndex={-1}
-      aria-label="PromptPolish result"
+      aria-label="Prompt Rerank result"
       className="pp-pop-in fixed z-[2147483647] flex max-h-[calc(100vh-1rem)] flex-col rounded-lg border border-neutral-200 bg-white p-3 font-sans text-neutral-900 shadow-xl outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
       style={{ top: panelTop, left: panelLeft, width: panelWidth }}
     >
@@ -338,7 +338,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
           <span aria-hidden="true" className="text-neutral-400">
             ⠿
           </span>
-          PromptPolish · {state.action.label}
+          Prompt Rerank · {state.action.label}
         </span>
         <button
           type="button"

@@ -33,10 +33,17 @@ export function buildMetaPrompt(input: MetaPromptInput): MetaPrompt {
   const action = getAction(input.actionId);
   const targetModel = action.targetModel ?? input.targetModel ?? 'generic';
 
+  // Generic best-practices only where they help. Focused actions (shorten,
+  // fix, professional, expand) opt out so the block doesn't drown out — or
+  // contradict — their specific goal and make every action look the same.
+  const useBestPractices = action.producesRewrite && action.applyBestPractices !== false;
+
   const sections: string[][] = [
     baseContract(),
-    [`Your task: ${action.strategy}`],
-    action.producesRewrite ? bestPractices() : [],
+    [
+      `Your task — this is the SPECIFIC transformation the user picked, and the result MUST clearly reflect it (not a generic "improved" version): ${action.strategy}`,
+    ],
+    useBestPractices ? bestPractices() : [],
     input.analysis ? findingFixes(input.analysis.findings) : [],
     input.analysis ? taskTypeHint(input.analysis.taskType) : [],
     modelIdioms(targetModel),

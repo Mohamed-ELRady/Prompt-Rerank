@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to PromptPolish are documented here. The format follows [Keep a Changelog](https://keepachangelog.com) and the project adheres to [Semantic Versioning](https://semver.org). From 1.0.0 onward, entries are generated per-PR via [changesets](https://github.com/changesets/changesets).
+All notable changes to Prompt Rerank are documented here. The format follows [Keep a Changelog](https://keepachangelog.com) and the project adheres to [Semantic Versioning](https://semver.org). From 1.0.0 onward, entries are generated per-PR via [changesets](https://github.com/changesets/changesets).
 
 ## [1.0.0] — 2026-07-18
 

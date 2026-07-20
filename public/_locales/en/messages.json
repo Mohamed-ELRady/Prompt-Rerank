@@ -1,6 +1,6 @@
 {
   "extName": {
-    "message": "PromptPolish",
+    "message": "Prompt Rerank",
     "description": "Extension name shown in the browser toolbar and store."
   },
   "extDescription": {
