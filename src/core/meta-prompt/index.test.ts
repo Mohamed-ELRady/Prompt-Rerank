@@ -51,4 +51,15 @@ describe('buildMetaPrompt', () => {
     const meta = buildMetaPrompt({ actionId: 'does-not-exist', text });
     expect(meta.system).toContain('applying prompt-engineering best practices');
   });
+
+  it('translation renders faithfully: no analysis findings, no best-practice block', () => {
+    const analysis = analyzePrompt(text);
+    expect(analysis.findings.length).toBeGreaterThan(0); // the sample is weak
+    const meta = buildMetaPrompt({ actionId: 'translate-en', text, analysis });
+    expect(meta.system).toContain('idiomatic English');
+    expect(meta.system).not.toContain('fix each one'); // findings not injected
+    for (const finding of analysis.findings) {
+      expect(meta.system).not.toContain(finding.suggestion);
+    }
+  });
 });

@@ -37,6 +37,9 @@ export function buildMetaPrompt(input: MetaPromptInput): MetaPrompt {
   // fix, professional, expand) opt out so the block doesn't drown out — or
   // contradict — their specific goal and make every action look the same.
   const useBestPractices = action.producesRewrite && action.applyBestPractices !== false;
+  // Analysis findings turn a rewrite into an "improved" version; translation
+  // opts out so it stays a faithful render of the original.
+  const analysis = action.usesAnalysis === false ? undefined : input.analysis;
 
   const sections: string[][] = [
     baseContract(),
@@ -44,8 +47,8 @@ export function buildMetaPrompt(input: MetaPromptInput): MetaPrompt {
       `Your task — this is the SPECIFIC transformation the user picked, and the result MUST clearly reflect it (not a generic "improved" version): ${action.strategy}`,
     ],
     useBestPractices ? bestPractices() : [],
-    input.analysis ? findingFixes(input.analysis.findings) : [],
-    input.analysis ? taskTypeHint(input.analysis.taskType) : [],
+    analysis ? findingFixes(analysis.findings) : [],
+    analysis ? taskTypeHint(analysis.taskType) : [],
     modelIdioms(targetModel),
     action.producesRewrite ? rewriteOutputContract() : explainOutputContract(),
   ];

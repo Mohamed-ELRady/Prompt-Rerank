@@ -25,9 +25,14 @@ describe('action registry', () => {
       'optimize-gpt',
       'optimize-claude',
       'optimize-gemini',
+      'translate-en',
     ]) {
       expect(ids).toContain(required);
     }
+  });
+
+  it('has translation opt out of analysis-driven "improvement"', () => {
+    expect(getAction('translate-en').usesAnalysis).toBe(false);
   });
 
   it('marks only explain as non-rewriting', () => {

@@ -25,6 +25,12 @@ export interface ActionDefinition {
    * Defaults to true for rewrite actions.
    */
   applyBestPractices?: boolean;
+  /**
+   * Whether analysis findings and the task-type hint are injected into the
+   * meta-prompt. Off for translation, where the goal is a faithful render of
+   * the original — not an "improved" version. Defaults to true.
+   */
+  usesAnalysis?: boolean;
   /** overrides the default sampling temperature for this action */
   temperature?: number;
 }
@@ -100,6 +106,16 @@ export const actions: ActionDefinition[] = [
     temperature: 0.8,
     strategy:
       'Propose a SUBSTANTIALLY DIFFERENT, better-engineered formulation that achieves the same goal. Do not lightly edit the original — restructure it from scratch (different angle, role, ordering, or framing) while preserving the objective. It should read as a genuinely fresh alternative.',
+  },
+  {
+    id: 'translate-en',
+    label: 'Translate to English',
+    group: 'refine',
+    producesRewrite: true,
+    applyBestPractices: false,
+    usesAnalysis: false,
+    strategy:
+      'Translate the prompt into clear, natural, idiomatic English — the way a native English speaker would phrase the very same request. Convey the full meaning and intent faithfully; NEVER translate word-for-word or produce stilted, literal English. Keep it as a prompt (do not answer it), and do not add, remove, or "improve" any requirements. If it is already in English, only refine its phrasing lightly.',
   },
   {
     id: 'optimize-coding',

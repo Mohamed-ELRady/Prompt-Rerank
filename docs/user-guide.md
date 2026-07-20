@@ -17,7 +17,8 @@
   - **Make more powerful** — maximal strengthening (role, criteria, structure).
   - **Fix issues** — minimal touch: repairs ambiguity/contradictions only.
   - **Explain weaknesses** — a report instead of a rewrite.
-  - **More ▾** — refine (professional / expand / shorten / alternative), optimize-for-task (coding, writing, research, business, education) and optimize-for-model (ChatGPT, Claude, Gemini).
+  - **More ▾** — refine (professional / expand / shorten / alternative / translate to English), optimize-for-task (coding, writing, research, business, education) and optimize-for-model (ChatGPT, Claude, Gemini).
+  - **Translate to English** — turns a prompt written in any language into clear, natural, idiomatic English (not a literal word-for-word translation), keeping it as a prompt and preserving every requirement.
 - The panel shows your prompt's **quality score and findings** instantly, then streams the result. Use the **Before / After** tab to see exactly what changed, then **Apply** (replaces your selection), **Copy**, or **Retry**.
 - **Keyboard**: `Ctrl+Shift+U` (`Cmd+Shift+U` on Mac). With nothing selected on a known AI site, it grabs the whole composer. Remap at `chrome://extensions/shortcuts`. `Esc` closes the UI.
 - On sites we recognize (claude.ai, chatgpt.com, gemini.google.com, …) every rewrite is automatically tuned to that site's model family.
