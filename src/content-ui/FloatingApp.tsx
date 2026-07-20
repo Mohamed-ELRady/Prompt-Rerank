@@ -44,8 +44,38 @@ export interface FloatingAppHandle {
 
 export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_props, ref) {
   const [state, setState] = useState<UiState>({ phase: 'hidden' });
+  // User-applied drag offset for the result panel, so it can be moved out of
+  // the way / into view on small screens. Reset when the panel closes.
+  const [drag, setDrag] = useState({ x: 0, y: 0 });
   const disconnectRef = useRef<(() => void) | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
+
+  const startDrag = useCallback(
+    (event: React.PointerEvent) => {
+      // don't drag when grabbing a control inside the header (e.g. ✕)
+      if ((event.target as HTMLElement).closest('button')) {
+        return;
+      }
+      event.preventDefault();
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const originX = drag.x;
+      const originY = drag.y;
+      const onMove = (moveEvent: PointerEvent) => {
+        setDrag({
+          x: originX + (moveEvent.clientX - startX),
+          y: originY + (moveEvent.clientY - startY),
+        });
+      };
+      const onUp = () => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+      };
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+    },
+    [drag],
+  );
 
   // Move focus into the panel when a run starts, so keyboard and screen-
   // reader users land on the live result region (FR-A7).
@@ -58,16 +88,20 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
 
   useImperativeHandle(ref, () => ({
     showToolbar(target, rect) {
-      setState((current) =>
-        current.phase === 'hidden' || current.phase === 'toolbar'
+      setState((current) => {
+        // A repeated selectionchange must not tear down an open "More" menu.
+        if (current.phase === 'toolbar' && current.menuOpen) {
+          return current;
+        }
+        return current.phase === 'hidden' || current.phase === 'toolbar'
           ? {
               phase: 'toolbar',
               target,
               anchor: { top: rect.top, bottom: rect.bottom, left: rect.left },
               menuOpen: false,
             }
-          : current,
-      );
+          : current;
+      });
     },
     selectionCleared() {
       setState((current) => (current.phase === 'toolbar' ? { phase: 'hidden' } : current));
@@ -77,6 +111,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
   const close = useCallback(() => {
     disconnectRef.current?.();
     disconnectRef.current = null;
+    setDrag({ x: 0, y: 0 });
     setState({ phase: 'hidden' });
   }, []);
 
@@ -168,7 +203,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
 
   if (state.phase === 'toolbar') {
     const top = Math.max(anchor.top - 44, 8);
-    const left = Math.min(Math.max(anchor.left, 8), window.innerWidth - 360);
+    const left = Math.min(Math.max(anchor.left, 8), Math.max(8, window.innerWidth - 340));
     const keepSelection = (e: React.MouseEvent) => {
       e.preventDefault();
     };
@@ -241,19 +276,29 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
     );
   }
 
-  const panelTop = Math.max(Math.min(anchor.bottom + 8, window.innerHeight - 320), 8);
-  const panelLeft = Math.min(Math.max(anchor.left, 8), window.innerWidth - 440);
+  // Responsive placement: never wider than the viewport, always clamped on
+  // screen. The user can then drag it anywhere via the header.
+  const panelWidth = Math.min(416, window.innerWidth - 16);
+  const panelTop = Math.max(Math.min(anchor.bottom + 8, window.innerHeight - 200), 8) + drag.y;
+  const panelLeft =
+    Math.min(Math.max(anchor.left, 8), Math.max(8, window.innerWidth - panelWidth - 8)) + drag.x;
 
   return (
     <section
       ref={panelRef}
       tabIndex={-1}
       aria-label="PromptPolish result"
-      className="pp-pop-in fixed z-[2147483647] w-[26rem] rounded-lg border border-neutral-200 bg-white p-3 font-sans text-neutral-900 shadow-xl outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-      style={{ top: panelTop, left: panelLeft }}
+      className="pp-pop-in fixed z-[2147483647] flex max-h-[calc(100vh-1rem)] flex-col rounded-lg border border-neutral-200 bg-white p-3 font-sans text-neutral-900 shadow-xl outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+      style={{ top: panelTop, left: panelLeft, width: panelWidth }}
     >
-      <header className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-semibold text-violet-600 dark:text-violet-400">
+      <header
+        onPointerDown={startDrag}
+        className="mb-2 flex cursor-move touch-none select-none items-center justify-between"
+      >
+        <span className="flex items-center gap-1.5 text-xs font-semibold text-violet-600 dark:text-violet-400">
+          <span aria-hidden="true" className="text-neutral-400">
+            ⠿
+          </span>
           PromptPolish · {state.action.label}
         </span>
         <button
@@ -265,91 +310,92 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
           ✕
         </button>
       </header>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {state.analysis && <AnalysisCard analysis={state.analysis} />}
 
-      {state.analysis && <AnalysisCard analysis={state.analysis} />}
-
-      {state.phase === 'error' ? (
-        <div>
-          <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>
-          <div className="mt-3 flex gap-2">
-            <PanelButton
-              primary
-              onClick={() => {
-                run(state.target, anchor, state.action);
-              }}
-            >
-              Retry
-            </PanelButton>
-            <PanelButton onClick={close}>Dismiss</PanelButton>
-          </div>
-        </div>
-      ) : (
-        <div>
-          {state.phase === 'done' && state.action.producesRewrite && (
-            <div className="mb-2 flex gap-1" role="tablist" aria-label="Result view">
-              <ViewTab
-                selected={state.view === 'result'}
-                onClick={() => {
-                  setState({ ...state, view: 'result' });
-                }}
-              >
-                Result
-              </ViewTab>
-              <ViewTab
-                selected={state.view === 'diff'}
-                onClick={() => {
-                  setState({ ...state, view: 'diff' });
-                }}
-              >
-                Before / After
-              </ViewTab>
-            </div>
-          )}
-
-          {state.phase === 'done' && state.view === 'diff' ? (
-            <DiffView before={state.target.text} after={state.improved} />
-          ) : (
-            <output
-              aria-live="polite"
-              className="block max-h-56 overflow-y-auto whitespace-pre-wrap rounded-md bg-neutral-50 p-2 text-sm text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
-            >
-              {state.phase === 'streaming' ? state.text || 'Working…' : state.improved}
-            </output>
-          )}
-
-          {state.phase === 'done' && (
-            <div className="mt-3 flex items-center gap-2">
-              {state.action.producesRewrite && (
-                <PanelButton
-                  primary
-                  onClick={() => {
-                    apply(state.target, state.improved);
-                  }}
-                >
-                  Apply
-                </PanelButton>
-              )}
+        {state.phase === 'error' ? (
+          <div>
+            <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>
+            <div className="mt-3 flex gap-2">
               <PanelButton
-                onClick={() => {
-                  void navigator.clipboard.writeText(state.improved);
-                }}
-              >
-                Copy
-              </PanelButton>
-              <PanelButton
+                primary
                 onClick={() => {
                   run(state.target, anchor, state.action);
                 }}
               >
                 Retry
               </PanelButton>
-              {state.note !== undefined && (
-                <p className="text-xs text-amber-600 dark:text-amber-400">{state.note}</p>
-              )}
+              <PanelButton onClick={close}>Dismiss</PanelButton>
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        ) : (
+          <div>
+            {state.phase === 'done' && state.action.producesRewrite && (
+              <div className="mb-2 flex gap-1" role="tablist" aria-label="Result view">
+                <ViewTab
+                  selected={state.view === 'result'}
+                  onClick={() => {
+                    setState({ ...state, view: 'result' });
+                  }}
+                >
+                  Result
+                </ViewTab>
+                <ViewTab
+                  selected={state.view === 'diff'}
+                  onClick={() => {
+                    setState({ ...state, view: 'diff' });
+                  }}
+                >
+                  Before / After
+                </ViewTab>
+              </div>
+            )}
+
+            {state.phase === 'done' && state.view === 'diff' ? (
+              <DiffView before={state.target.text} after={state.improved} />
+            ) : (
+              <output
+                aria-live="polite"
+                className="block max-h-56 overflow-y-auto whitespace-pre-wrap rounded-md bg-neutral-50 p-2 text-sm text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
+              >
+                {state.phase === 'streaming' ? state.text || 'Working…' : state.improved}
+              </output>
+            )}
+
+            {state.phase === 'done' && (
+              <div className="mt-3 flex items-center gap-2">
+                {state.action.producesRewrite && (
+                  <PanelButton
+                    primary
+                    onClick={() => {
+                      apply(state.target, state.improved);
+                    }}
+                  >
+                    Apply
+                  </PanelButton>
+                )}
+                <PanelButton
+                  onClick={() => {
+                    void navigator.clipboard.writeText(state.improved);
+                  }}
+                >
+                  Copy
+                </PanelButton>
+                <PanelButton
+                  onClick={() => {
+                    run(state.target, anchor, state.action);
+                  }}
+                >
+                  Retry
+                </PanelButton>
+                {state.note !== undefined && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">{state.note}</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </section>
   );
 });
