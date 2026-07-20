@@ -42,4 +42,16 @@ describe('applyToTarget (text-field)', () => {
       applyToTarget({ kind: 'text-field', element: el, start: 0, end: 4, text: 'gone' }, 'x'),
     ).toBe('failed');
   });
+
+  it('replace-all clears the whole field regardless of the captured range', () => {
+    const el = makeTextarea('old prompt with extra tail text');
+    const result = applyToTarget(
+      // captured selection was only a fragment ("old prompt")
+      { kind: 'text-field', element: el, start: 0, end: 10, text: 'old prompt' },
+      'the brand new rewritten prompt',
+      'replace-all',
+    );
+    expect(result).toBe('inserted');
+    expect(el.value).toBe('the brand new rewritten prompt');
+  });
 });

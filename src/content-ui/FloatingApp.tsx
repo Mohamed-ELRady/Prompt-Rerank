@@ -219,7 +219,9 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
   );
 
   const apply = useCallback((target: CapturedTarget, improved: string) => {
-    if (applyToTarget(target, improved) === 'inserted') {
+    // Replace the whole field: the user is swapping the entire old prompt for
+    // the rewritten one, not editing a fragment.
+    if (applyToTarget(target, improved, 'replace-all') === 'inserted') {
       disconnectRef.current?.();
       disconnectRef.current = null;
       setState({ phase: 'hidden' });

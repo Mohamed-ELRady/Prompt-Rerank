@@ -73,6 +73,31 @@ test('improve → apply replaces selection in a plain textarea', async ({ contex
   await expect(panel).toBeHidden();
 });
 
+test('apply replaces the WHOLE field even when only a fragment was selected', async ({
+  context,
+}) => {
+  const page = await context.newPage();
+  await page.goto('http://localhost:8787/plain.html');
+
+  // select only the first few words, not the entire prompt
+  await page.click('#ta');
+  await page.evaluate(() => {
+    const el = document.querySelector('#ta') as HTMLTextAreaElement;
+    el.focus();
+    el.setSelectionRange(0, 5);
+  });
+
+  const toolbar = page.getByRole('toolbar', { name: 'Prompt Rerank actions' });
+  await expect(toolbar).toBeVisible();
+  await toolbar.getByRole('button', { name: 'Improve' }).click();
+  const panel = page.getByRole('region', { name: 'Prompt Rerank result' });
+  await expect(panel).toContainText(MOCK_IMPROVED);
+
+  await panel.getByRole('button', { name: 'Apply' }).click();
+  // old text is gone entirely — the field holds only the rewritten prompt
+  await expect(page.locator('#ta')).toHaveValue(MOCK_IMPROVED);
+});
+
 test('improve → apply works in contenteditable', async ({ context }) => {
   const page = await context.newPage();
   await page.goto('http://localhost:8787/plain.html');

@@ -1,4 +1,9 @@
-import { type CapturedTarget, type InsertResult, type TextFieldTarget } from '../types';
+import {
+  type CapturedTarget,
+  type InsertMode,
+  type InsertResult,
+  type TextFieldTarget,
+} from '../types';
 
 /**
  * Generic insertion strategies (SDD §5.2, discovery challenge #1).
@@ -11,7 +16,11 @@ import { type CapturedTarget, type InsertResult, type TextFieldTarget } from '..
  * to). Callers fall back to the clipboard when these report failure.
  */
 
-function insertIntoTextField(target: TextFieldTarget, text: string): InsertResult {
+function insertIntoTextField(
+  target: TextFieldTarget,
+  text: string,
+  mode: InsertMode,
+): InsertResult {
   const { element, start, end } = target;
   if (!element.isConnected) {
     return 'failed';
@@ -26,8 +35,10 @@ function insertIntoTextField(target: TextFieldTarget, text: string): InsertResul
     return 'failed';
   }
   const value = element.value;
-  const safeStart = Math.min(start, value.length);
-  const safeEnd = Math.min(Math.max(end, safeStart), value.length);
+  const [safeStart, safeEnd] =
+    mode === 'replace-all'
+      ? [0, value.length]
+      : [Math.min(start, value.length), Math.min(Math.max(end, start), value.length)];
   element.focus();
   setter.call(element, value.slice(0, safeStart) + text + value.slice(safeEnd));
   element.dispatchEvent(new InputEvent('input', { bubbles: true, data: text }));
@@ -36,13 +47,24 @@ function insertIntoTextField(target: TextFieldTarget, text: string): InsertResul
   return 'inserted';
 }
 
-function insertIntoContentEditable(root: HTMLElement, range: Range, text: string): InsertResult {
+function insertIntoContentEditable(
+  root: HTMLElement,
+  capturedRange: Range,
+  text: string,
+  mode: InsertMode,
+): InsertResult {
   if (!root.isConnected) {
     return 'failed';
   }
   const selection = window.getSelection();
   if (!selection) {
     return 'failed';
+  }
+  // replace-all selects the whole editor's contents instead of the fragment.
+  let range = capturedRange;
+  if (mode === 'replace-all') {
+    range = document.createRange();
+    range.selectNodeContents(root);
   }
   root.focus();
   selection.removeAllRanges();
@@ -87,8 +109,12 @@ function insertIntoContentEditable(root: HTMLElement, range: Range, text: string
   }
 }
 
-export function applyToTarget(target: CapturedTarget, text: string): InsertResult {
+export function applyToTarget(
+  target: CapturedTarget,
+  text: string,
+  mode: InsertMode = 'replace-selection',
+): InsertResult {
   return target.kind === 'text-field'
-    ? insertIntoTextField(target, text)
-    : insertIntoContentEditable(target.root, target.range, text);
+    ? insertIntoTextField(target, text, mode)
+    : insertIntoContentEditable(target.root, target.range, text, mode);
 }

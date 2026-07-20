@@ -24,4 +24,11 @@ export interface ContentEditableTarget {
 
 export type CapturedTarget = TextFieldTarget | ContentEditableTarget;
 
+/**
+ * 'replace-selection' swaps only the captured range; 'replace-all' clears the
+ * whole field first — what Apply uses, since the user is rewriting the entire
+ * prompt, not editing a fragment of it.
+ */
+export type InsertMode = 'replace-selection' | 'replace-all';
+
 export type InsertResult = 'inserted' | 'failed';
