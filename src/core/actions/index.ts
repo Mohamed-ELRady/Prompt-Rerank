@@ -31,6 +31,19 @@ export interface ActionDefinition {
    * the original — not an "improved" version. Defaults to true.
    */
   usesAnalysis?: boolean;
+  /**
+   * Whether the analyzer's "Fix: add X / specify Y" findings are injected.
+   * These are always framed as ADDING content (context, format, examples),
+   * so they actively contradict actions whose whole point is to NOT grow the
+   * prompt (shorten, professional) — for a typically short/vague input this
+   * block was the single most concrete instruction in the whole system
+   * prompt and drowned out the action's own strategy, making every action
+   * converge on the same expanded rewrite. Off by default when
+   * applyBestPractices is false; set explicitly to override (e.g. 'fix'
+   * wants both false-for-best-practices and true-for-finding-fixes, since
+   * "missing specifications" is literally what it targets).
+   */
+  applyFindingFixes?: boolean;
   /** overrides the default sampling temperature for this action */
   temperature?: number;
 }
@@ -60,6 +73,7 @@ export const actions: ActionDefinition[] = [
     group: 'primary',
     producesRewrite: true,
     applyBestPractices: false,
+    applyFindingFixes: true, // "missing specifications" is exactly what fix targets
     strategy:
       'Fix ONLY the identified weaknesses (ambiguity, contradictions, missing specifications). Make the smallest edits possible: keep the original wording, structure, and length as close to the original as you can. Do not add a role, examples, or new sections unless one directly fixes a listed weakness.',
   },
@@ -68,6 +82,7 @@ export const actions: ActionDefinition[] = [
     label: 'Explain weaknesses',
     group: 'primary',
     producesRewrite: false,
+    applyFindingFixes: true, // the report is literally about these findings
     strategy:
       'Explain the weaknesses of the prompt and how each one degrades AI responses. Do not rewrite it.',
   },
@@ -86,6 +101,7 @@ export const actions: ActionDefinition[] = [
     group: 'refine',
     producesRewrite: true,
     applyBestPractices: false,
+    applyFindingFixes: true, // "add missing X" findings reinforce expand's own goal
     strategy:
       'Expand the prompt so it is clearly LONGER and more detailed than the original: spell out context, requirements, constraints, and output expectations as separate labeled sections. Do not invent new requirements — elaborate on what is implied, using [placeholders] for missing specifics.',
   },

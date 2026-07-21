@@ -52,6 +52,30 @@ describe('buildMetaPrompt', () => {
     expect(meta.system).toContain('applying prompt-engineering best practices');
   });
 
+  it('does not inject growth-oriented finding fixes into actions meant to stay compact', () => {
+    // Regression: for a short/vague prompt the analyzer always flags missing
+    // context/output-format with "Fix: add X" advice. Injecting that into
+    // 'shorten' or 'professional' contradicted their own strategy ("stay
+    // roughly the same length" / "clearly shorter") and made every action's
+    // output converge on the same expanded rewrite.
+    const analysis = analyzePrompt(text);
+    expect(analysis.findings.length).toBeGreaterThan(0); // the sample is weak
+
+    for (const id of ['shorten', 'professional']) {
+      const meta = buildMetaPrompt({ actionId: id, text, analysis });
+      expect(meta.system).not.toContain('fix each one');
+      for (const finding of analysis.findings) {
+        expect(meta.system).not.toContain(finding.suggestion);
+      }
+    }
+
+    // but actions that target missing-spec findings directly still get them
+    for (const id of ['fix', 'explain', 'improve']) {
+      const meta = buildMetaPrompt({ actionId: id, text, analysis });
+      expect(meta.system).toContain('fix each one');
+    }
+  });
+
   it('translation renders faithfully: no analysis findings, no best-practice block', () => {
     const analysis = analyzePrompt(text);
     expect(analysis.findings.length).toBeGreaterThan(0); // the sample is weak
