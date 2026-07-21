@@ -44,6 +44,16 @@ export interface ActionDefinition {
    * "missing specifications" is literally what it targets).
    */
   applyFindingFixes?: boolean;
+  /**
+   * Whether to use XML-tag / labeled-section structure and [bracket]
+   * placeholders for missing detail, regardless of how short the input is.
+   * By default this is decided from the analyzed complexity (short prompts
+   * get a plain-sentence rewrite instead of a template full of blanks the
+   * user has to hand-fill) — set true for actions whose whole purpose is to
+   * flesh a short prompt out (expand, powerful, domain optimizers), where
+   * suppressing structure would defeat the action.
+   */
+  forceStructure?: boolean;
   /** overrides the default sampling temperature for this action */
   temperature?: number;
 }
@@ -64,6 +74,7 @@ export const actions: ActionDefinition[] = [
     label: 'Make more powerful',
     group: 'primary',
     producesRewrite: true,
+    forceStructure: true, // "structure it for maximum response quality" IS the point
     strategy:
       'Substantially strengthen the prompt: assign an expert role, tighten the objective, add explicit quality criteria and output expectations, and structure it for maximum response quality.',
   },
@@ -102,6 +113,7 @@ export const actions: ActionDefinition[] = [
     producesRewrite: true,
     applyBestPractices: false,
     applyFindingFixes: true, // "add missing X" findings reinforce expand's own goal
+    forceStructure: true, // spelling out labeled sections IS the point
     strategy:
       'Expand the prompt so it is clearly LONGER and more detailed than the original: spell out context, requirements, constraints, and output expectations as separate labeled sections. Do not invent new requirements — elaborate on what is implied, using [placeholders] for missing specifics.',
   },
@@ -138,6 +150,7 @@ export const actions: ActionDefinition[] = [
     label: 'Optimize for coding',
     group: 'domain',
     producesRewrite: true,
+    forceStructure: true, // spelling out language/env/edge-cases IS the point
     strategy:
       'Optimize the prompt for a software-engineering task: make the language, environment, inputs/outputs, edge cases and testing expectations explicit, and ask for code with brief reasoning.',
   },
@@ -146,6 +159,7 @@ export const actions: ActionDefinition[] = [
     label: 'Optimize for writing',
     group: 'domain',
     producesRewrite: true,
+    forceStructure: true, // spelling out audience/tone/length IS the point
     strategy:
       'Optimize the prompt for a writing task: specify audience, tone, length, structure and style constraints explicitly.',
   },
@@ -154,6 +168,7 @@ export const actions: ActionDefinition[] = [
     label: 'Optimize for research',
     group: 'domain',
     producesRewrite: true,
+    forceStructure: true, // spelling out methodology/sourcing IS the point
     strategy:
       'Optimize the prompt for research/analysis: require sourced claims, balanced perspectives, explicit methodology and a structured summary of findings.',
   },
@@ -162,6 +177,7 @@ export const actions: ActionDefinition[] = [
     label: 'Optimize for business',
     group: 'domain',
     producesRewrite: true,
+    forceStructure: true, // spelling out objective/audience/criteria IS the point
     strategy:
       'Optimize the prompt for a business context: clarify objective, audience, success criteria and deliverable format expected by stakeholders.',
   },
@@ -170,6 +186,7 @@ export const actions: ActionDefinition[] = [
     label: 'Optimize for education',
     group: 'domain',
     producesRewrite: true,
+    forceStructure: true, // spelling out level/steps/checks IS the point
     strategy:
       'Optimize the prompt for teaching/learning: state the learner level, ask for step-by-step explanations, examples, and checks for understanding.',
   },

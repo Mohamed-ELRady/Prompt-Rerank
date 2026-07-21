@@ -49,16 +49,24 @@ export function buildMetaPrompt(input: MetaPromptInput): MetaPrompt {
   // short input was the single most concrete instruction in the whole
   // prompt and made every action converge on the same expanded rewrite.
   const useFindingFixes = action.applyFindingFixes ?? useBestPractices;
+  // XML-tag/labeled-section structure and [bracket] placeholders read as
+  // confusing clutter on a short prompt — the user has to hand-fill blanks
+  // before the result is even usable. Gate structure on the analyzed
+  // complexity; unknown complexity (no analysis passed in) defaults to
+  // allowing it. Actions whose whole job is to flesh a prompt out force it
+  // on regardless of length.
+  const allowStructure =
+    action.forceStructure === true || (input.analysis?.complexity ?? 'moderate') !== 'simple';
 
   const sections: string[][] = [
-    baseContract(),
+    baseContract(allowStructure),
     [
       `Your task — this is the SPECIFIC transformation the user picked, and the result MUST clearly reflect it (not a generic "improved" version): ${action.strategy}`,
     ],
     useBestPractices ? bestPractices() : [],
     analysis && useFindingFixes ? findingFixes(analysis.findings) : [],
     analysis ? taskTypeHint(analysis.taskType) : [],
-    modelIdioms(targetModel),
+    modelIdioms(targetModel, allowStructure),
     action.producesRewrite ? rewriteOutputContract() : explainOutputContract(),
   ];
 

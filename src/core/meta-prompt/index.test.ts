@@ -76,6 +76,37 @@ describe('buildMetaPrompt', () => {
     }
   });
 
+  it('suppresses bracket placeholders and XML-tag structure for a short prompt', () => {
+    // Regression: a short prompt (e.g. "write me a post about coffee") that
+    // is missing detail like platform/audience used to always come back
+    // full of "[choose platform]" style blanks and, on Claude, <context>/
+    // <task>/<constraints> tags — confusing clutter the user had to hand-
+    // edit before the result was usable, even though the whole point of a
+    // one-click Improve is that it's ready to use immediately.
+    const shortText = 'اكتب منشور عن القهوة';
+    const analysis = analyzePrompt(shortText);
+    expect(analysis.complexity).toBe('simple');
+
+    for (const id of ['improve', 'optimize-claude']) {
+      const meta = buildMetaPrompt({
+        actionId: id,
+        text: shortText,
+        analysis,
+        targetModel: 'claude',
+      });
+      expect(meta.system).not.toContain('add structure and placeholders');
+      expect(meta.system).toContain('do NOT add bracket placeholders');
+      expect(meta.system).not.toContain('<context>, <task>');
+      expect(meta.system).toContain('do not add XML-style tags');
+    }
+
+    // actions whose entire job is to flesh a short prompt out keep structure
+    for (const id of ['powerful', 'expand', 'optimize-coding']) {
+      const meta = buildMetaPrompt({ actionId: id, text: shortText, analysis });
+      expect(meta.system).toContain('add structure and placeholders');
+    }
+  });
+
   it('translation renders faithfully: no analysis findings, no best-practice block', () => {
     const analysis = analyzePrompt(text);
     expect(analysis.findings.length).toBeGreaterThan(0); // the sample is weak
