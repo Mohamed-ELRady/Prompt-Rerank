@@ -182,6 +182,7 @@ export function OptionsApp() {
                   onVaultChange={refreshProviders}
                 />
               )}
+              <p className="text-center text-xs text-neutral-400">Made with ❤️ by Mohamed ELRady</p>
             </section>
 
             <section className="space-y-4" aria-labelledby="appearance-heading">
