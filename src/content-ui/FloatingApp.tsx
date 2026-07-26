@@ -77,7 +77,20 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
     rect: { top: number; bottom: number; left: number; right: number };
     origin: { x: number; y: number };
   } | null>(null);
+  /**
+   * Correction applied to the menu after measuring where it actually landed.
+   *
+   * Computing the right position up front has repeatedly failed because it
+   * depends on things we can't see from here (the containing block, ancestor
+   * transforms, zoom, stale geometry after a scroll). Measuring the rendered
+   * box and nudging it back on screen is independent of all of that, so it
+   * holds whatever the host page does.
+   */
+  const [menuAutoOffset, setMenuAutoOffset] = useState({ x: 0, y: 0 });
+  /** Bumped on scroll/resize so measured geometry can't go stale. */
+  const [viewportTick, setViewportTick] = useState(0);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const lastAnchorRef = useRef<{ top: number; left: number } | null>(null);
   const disconnectRef = useRef<(() => void) | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
@@ -167,14 +180,29 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
     if (!el) {
       return;
     }
+    const EDGE = 8;
     const rect = el.getBoundingClientRect();
-    const overflowRight = rect.right - (window.innerWidth - 8);
-    const overflowLeft = 8 - rect.left;
-    const overflowBottom = rect.bottom - (window.innerHeight - 8);
-    const overflowTop = 8 - rect.top;
-    const dx = overflowRight > 0 ? -overflowRight : overflowLeft > 0 ? overflowLeft : 0;
-    const dy = overflowBottom > 0 ? -overflowBottom : overflowTop > 0 ? overflowTop : 0;
-    if (dx !== 0 || dy !== 0) {
+    // A surface wider/taller than the viewport can't satisfy both edges: it
+    // must be pinned to one, or the two corrections fight each other and the
+    // effect re-renders forever (which froze the toolbar entirely on narrow
+    // windows before this guard existed).
+    const dx =
+      rect.width > window.innerWidth - 2 * EDGE
+        ? EDGE - rect.left
+        : rect.right > window.innerWidth - EDGE
+          ? window.innerWidth - EDGE - rect.right
+          : rect.left < EDGE
+            ? EDGE - rect.left
+            : 0;
+    const dy =
+      rect.height > window.innerHeight - 2 * EDGE
+        ? EDGE - rect.top
+        : rect.bottom > window.innerHeight - EDGE
+          ? window.innerHeight - EDGE - rect.bottom
+          : rect.top < EDGE
+            ? EDGE - rect.top
+            : 0;
+    if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
       setToolbarAutoOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
       return; // re-measure on the next pass, once the correction has applied
     }
@@ -197,7 +225,77 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
             origin,
           },
     );
-  }, [state, toolbarAutoOffset]);
+  }, [state, toolbarAutoOffset, viewportTick]);
+
+  /**
+   * Keep the open menu on screen by measuring where it really is.
+   *
+   * This is the guarantee, not the placement math above: whatever coordinate
+   * space the host page imposes, the rendered box is ground truth. Skipped
+   * once the user has dragged it — then the position is their choice, not
+   * ours to override.
+   */
+  useLayoutEffect(() => {
+    if (state.phase !== 'toolbar' || !state.menuOpen) {
+      return;
+    }
+    if (menuDrag.x !== 0 || menuDrag.y !== 0) {
+      return;
+    }
+    const el = menuRef.current;
+    if (!el) {
+      return;
+    }
+    const EDGE = 8;
+    const rect = el.getBoundingClientRect();
+    // When a surface is larger than the viewport it can't satisfy both edges,
+    // so pin it to the top/left instead of oscillating between them.
+    const dy =
+      rect.height > window.innerHeight - 2 * EDGE
+        ? EDGE - rect.top
+        : rect.bottom > window.innerHeight - EDGE
+          ? window.innerHeight - EDGE - rect.bottom
+          : rect.top < EDGE
+            ? EDGE - rect.top
+            : 0;
+    const dx =
+      rect.width > window.innerWidth - 2 * EDGE
+        ? EDGE - rect.left
+        : rect.right > window.innerWidth - EDGE
+          ? window.innerWidth - EDGE - rect.right
+          : rect.left < EDGE
+            ? EDGE - rect.left
+            : 0;
+    if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+      setMenuAutoOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+    }
+  }, [state, menuDrag, menuAutoOffset, toolbarGeometry, viewportTick]);
+
+  // Measured geometry goes stale when the page scrolls or the window resizes
+  // (and under a transformed ancestor our surfaces scroll with the page), so
+  // refresh it. rAF-coalesced: scroll fires far more often than we need.
+  useEffect(() => {
+    if (state.phase === 'hidden') {
+      return;
+    }
+    let queued = false;
+    const bump = () => {
+      if (queued) {
+        return;
+      }
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        setViewportTick((tick) => tick + 1);
+      });
+    };
+    window.addEventListener('resize', bump);
+    window.addEventListener('scroll', bump, true);
+    return () => {
+      window.removeEventListener('resize', bump);
+      window.removeEventListener('scroll', bump, true);
+    };
+  }, [state.phase]);
 
   useImperativeHandle(ref, () => ({
     showToolbar(target, rect) {
@@ -235,6 +333,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
       setToolbarDrag({ x: 0, y: 0 });
       setToolbarAutoOffset({ x: 0, y: 0 });
       setMenuDrag({ x: 0, y: 0 });
+      setMenuAutoOffset({ x: 0, y: 0 });
       setState((current) => (current.phase === 'toolbar' ? { phase: 'hidden' } : current));
     },
   }));
@@ -248,6 +347,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
     setToolbarDrag({ x: 0, y: 0 });
     setToolbarAutoOffset({ x: 0, y: 0 });
     setMenuDrag({ x: 0, y: 0 });
+    setMenuAutoOffset({ x: 0, y: 0 });
     setState({ phase: 'hidden' });
   }, []);
 
@@ -380,8 +480,8 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
         Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - EDGE),
       );
       return {
-        top: viewportTop - origin.y + menuDrag.y,
-        left: viewportLeft - origin.x + menuDrag.x,
+        top: viewportTop - origin.y + menuDrag.y + menuAutoOffset.y,
+        left: viewportLeft - origin.x + menuDrag.x + menuAutoOffset.x,
         width: MENU_WIDTH,
         maxHeight,
       };
@@ -395,7 +495,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
         role="toolbar"
         aria-label="Prompt Rerank actions"
         onPointerDown={dragHandler(toolbarDrag, setToolbarDrag)}
-        className="pp-pop-in fixed z-[2147483647] flex w-max touch-none select-none items-center gap-1 whitespace-nowrap rounded-lg border border-neutral-200 bg-white p-1 font-sans shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
+        className="pp-fade-in fixed z-[2147483647] flex w-max max-w-[calc(100vw-1rem)] touch-none select-none flex-wrap items-center gap-1 whitespace-nowrap rounded-lg border border-neutral-200 bg-white p-1 font-sans shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
         style={{ top, left }}
       >
         <span
@@ -428,6 +528,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
           onMouseDown={keepSelection}
           onClick={() => {
             setMenuDrag({ x: 0, y: 0 });
+            setMenuAutoOffset({ x: 0, y: 0 });
             setState({ ...state, menuOpen: !state.menuOpen });
           }}
         >
@@ -435,9 +536,10 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
         </button>
         {menuStyle && (
           <div
+            ref={menuRef}
             role="menu"
             style={menuStyle}
-            className="pp-pop-in fixed z-[2147483647] flex touch-none select-none flex-col rounded-lg border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+            className="pp-fade-in fixed z-[2147483647] flex touch-none select-none flex-col rounded-lg border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
           >
             <div
               onPointerDown={dragHandler(menuDrag, setMenuDrag)}

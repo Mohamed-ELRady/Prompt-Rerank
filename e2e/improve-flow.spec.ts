@@ -244,6 +244,36 @@ test('the More menu stays on screen under a transformed ancestor on a scrolled p
   await expect(menu.getByRole('menuitem', { name: 'Shorten' })).toBeVisible();
 });
 
+test('the toolbar and menu survive a viewport narrower than the toolbar', async ({ context }) => {
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 500, height: 300 });
+  await page.goto('http://localhost:8787/plain.html');
+
+  await selectAllIn(page, '#ta');
+  // Regression: the toolbar is wider than 500px, so the on-screen correction
+  // pushed it left off the right edge, then right off the left edge, forever
+  // — an infinite render loop that meant the toolbar never appeared at all.
+  const toolbar = page.getByRole('toolbar', { name: 'Prompt Rerank actions' });
+  await expect(toolbar).toBeVisible();
+
+  await toolbar.getByRole('button', { name: 'More ▾' }).click();
+  const menu = page.getByRole('menu');
+  await expect(menu).toBeVisible();
+
+  const box = await boxOf(menu);
+  const { width: vw, height: vh } = await page.evaluate(() => ({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  }));
+  // menu is taller than this viewport, so it must be capped and pinned rather
+  // than oscillating between the top and bottom edges
+  expect(box.y).toBeGreaterThanOrEqual(-0.5);
+  expect(box.y + box.height).toBeLessThanOrEqual(vh + 0.5);
+  expect(box.x).toBeGreaterThanOrEqual(-0.5);
+  expect(box.x + box.width).toBeLessThanOrEqual(vw + 0.5);
+  await expect(menu.getByTitle('Drag to move')).toBeVisible();
+});
+
 test('the More menu can be dragged in any direction', async ({ context }) => {
   const page = await context.newPage();
   await page.goto('http://localhost:8787/plain.html');

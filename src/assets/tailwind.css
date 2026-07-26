@@ -21,8 +21,26 @@
   animation: pp-pop-in 120ms ease-out;
 }
 
+/* Opacity-only entrance for surfaces whose position is measured after paint
+   (the toolbar and its menu). A transform in the keyframe is included in
+   getBoundingClientRect() while the animation runs, so it would corrupt the
+   very measurement the on-screen correction depends on. */
+@keyframes pp-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.pp-fade-in {
+  animation: pp-fade-in 120ms ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .pp-pop-in {
+  .pp-pop-in,
+  .pp-fade-in {
     animation: none;
   }
 }
