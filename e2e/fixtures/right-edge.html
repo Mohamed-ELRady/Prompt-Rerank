@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prompt Rerank fixture: field near the right edge</title>
+  </head>
+  <body style="margin: 0">
+    <!--
+      Reproduces the case where the toolbar itself overflowed the right
+      edge of the viewport: with the field close to the right side, the
+      toolbar's natural content width (well over the old hardcoded 340px
+      placement budget) pushed "More" off-screen and unclickable, and a
+      fixed-position element with no explicit width also let the browser's
+      shrink-to-fit sizing squeeze it, wrapping every button label onto
+      several lines.
+    -->
+    <textarea
+      id="ta"
+      rows="3"
+      style="position: absolute; right: 20px; top: 40px; width: 300px; box-sizing: border-box"
+    >
+write me a poem about the sea</textarea>
+  </body>
+</html>

@@ -1,4 +1,12 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { actions, type ActionDefinition } from '@/core/actions';
 import { type PromptAnalysis } from '@/core/types';
 import { sendMessage } from '@/platform/messaging/messenger';
@@ -48,6 +56,13 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
   // can't be read or reached on small screens. Reset when they close.
   const [drag, setDrag] = useState({ x: 0, y: 0 });
   const [toolbarDrag, setToolbarDrag] = useState({ x: 0, y: 0 });
+  // The toolbar's width depends on its content (action labels), so it can't
+  // be guessed up front — a hardcoded budget overflowed the viewport edge
+  // whenever the real width exceeded it, pushing "More" (and its menu)
+  // off-screen. Measured after paint and corrected via this offset instead.
+  const [toolbarAutoOffset, setToolbarAutoOffset] = useState({ x: 0, y: 0 });
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const lastAnchorRef = useRef<{ top: number; left: number } | null>(null);
   const disconnectRef = useRef<(() => void) | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
   // Watchdog against a stuck "Working…": if no chunk/done/error arrives within
@@ -121,8 +136,47 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
     }
   }, [streamingStarted]);
 
+  // The toolbar's width depends on its action labels, so its base position
+  // can only clamp against the left/top edges, not the right/bottom ones —
+  // measure the real rendered box after layout and nudge it back on screen
+  // if it overflows. Runs once per new anchor (not on manual drags — those
+  // are the user's own choice) and converges in at most one correction.
+  useLayoutEffect(() => {
+    if (state.phase !== 'toolbar') {
+      return;
+    }
+    const el = toolbarRef.current;
+    if (!el) {
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const overflowRight = rect.right - (window.innerWidth - 8);
+    const overflowLeft = 8 - rect.left;
+    const overflowBottom = rect.bottom - (window.innerHeight - 8);
+    const overflowTop = 8 - rect.top;
+    const dx = overflowRight > 0 ? -overflowRight : overflowLeft > 0 ? overflowLeft : 0;
+    const dy = overflowBottom > 0 ? -overflowBottom : overflowTop > 0 ? overflowTop : 0;
+    if (dx !== 0 || dy !== 0) {
+      setToolbarAutoOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+    }
+  }, [state]);
+
   useImperativeHandle(ref, () => ({
     showToolbar(target, rect) {
+      // Only a genuinely new position needs a fresh width measurement —
+      // otherwise the debounced re-fire on every selectionchange tick would
+      // wipe the correction and flicker every ~180ms while a selection sits
+      // still. Read via ref, not `state`, so this stays a plain event
+      // handler rather than a side effect inside the setState updater.
+      const lastAnchor = lastAnchorRef.current;
+      const moved =
+        !lastAnchor ||
+        Math.abs(lastAnchor.top - rect.top) > 1 ||
+        Math.abs(lastAnchor.left - rect.left) > 1;
+      lastAnchorRef.current = { top: rect.top, left: rect.left };
+      if (moved) {
+        setToolbarAutoOffset({ x: 0, y: 0 });
+      }
       setState((current) => {
         // A repeated selectionchange must not tear down an open "More" menu.
         if (current.phase === 'toolbar' && current.menuOpen) {
@@ -139,7 +193,9 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
       });
     },
     selectionCleared() {
+      lastAnchorRef.current = null;
       setToolbarDrag({ x: 0, y: 0 });
+      setToolbarAutoOffset({ x: 0, y: 0 });
       setState((current) => (current.phase === 'toolbar' ? { phase: 'hidden' } : current));
     },
   }));
@@ -148,8 +204,10 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
     disconnectRef.current?.();
     disconnectRef.current = null;
     window.clearTimeout(watchdogRef.current);
+    lastAnchorRef.current = null;
     setDrag({ x: 0, y: 0 });
     setToolbarDrag({ x: 0, y: 0 });
+    setToolbarAutoOffset({ x: 0, y: 0 });
     setState({ phase: 'hidden' });
   }, []);
 
@@ -249,9 +307,11 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
   const { anchor } = state;
 
   if (state.phase === 'toolbar') {
-    const top = Math.max(anchor.top - 44, 8) + toolbarDrag.y;
-    const left =
-      Math.min(Math.max(anchor.left, 8), Math.max(8, window.innerWidth - 340)) + toolbarDrag.x;
+    // Only the left/top edges can be clamped without knowing the toolbar's
+    // real width (see the measurement effect above for the right/bottom
+    // correction, applied via toolbarAutoOffset).
+    const top = Math.max(anchor.top - 44, 8) + toolbarDrag.y + toolbarAutoOffset.y;
+    const left = Math.max(anchor.left, 8) + toolbarDrag.x + toolbarAutoOffset.x;
     // The More menu is tall, so a fixed downward drop ran off the bottom of
     // the viewport whenever the selection sat low on the page. Open it in
     // whichever direction has more room and cap its height to fit.
@@ -268,10 +328,11 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
     };
     return (
       <div
+        ref={toolbarRef}
         role="toolbar"
         aria-label="Prompt Rerank actions"
         onPointerDown={dragHandler(toolbarDrag, setToolbarDrag)}
-        className="pp-pop-in fixed z-[2147483647] flex touch-none select-none items-center gap-1 rounded-lg border border-neutral-200 bg-white p-1 font-sans shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
+        className="pp-pop-in fixed z-[2147483647] flex w-max touch-none select-none items-center gap-1 whitespace-nowrap rounded-lg border border-neutral-200 bg-white p-1 font-sans shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
         style={{ top, left }}
       >
         <span

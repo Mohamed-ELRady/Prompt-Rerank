@@ -180,6 +180,34 @@ test('the More menu stays inside the viewport when the field is near the bottom'
   await expect(menu.getByRole('menuitem', { name: 'Shorten' })).toBeVisible();
 });
 
+test('the toolbar itself stays inside the viewport when the field is near the right edge', async ({
+  context,
+}) => {
+  const page = await context.newPage();
+  await page.goto('http://localhost:8787/right-edge.html');
+
+  await selectAllIn(page, '#ta');
+  const toolbar = page.getByRole('toolbar', { name: 'Prompt Rerank actions' });
+  await expect(toolbar).toBeVisible();
+
+  const box = await boxOf(toolbar);
+  const viewportWidth = await page.evaluate(() => window.innerWidth);
+  // fully on screen — it used to overflow the right edge because its
+  // position was clamped against a hardcoded width guess far smaller than
+  // its real content width
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewportWidth);
+  // and stayed a single line — a fixed-position element with no explicit
+  // width lets the browser's shrink-to-fit sizing wrap every button label
+  // onto several lines once the available space runs out
+  expect(box.height).toBeLessThan(40);
+
+  // "More" is the rightmost item, so it's the first to go off-screen —
+  // confirm it's still reachable
+  await toolbar.getByRole('button', { name: 'More ▾' }).click();
+  await expect(page.getByRole('menu')).toBeVisible();
+});
+
 test('the toolbar can be dragged out of the way', async ({ context }) => {
   const page = await context.newPage();
   await page.goto('http://localhost:8787/plain.html');
