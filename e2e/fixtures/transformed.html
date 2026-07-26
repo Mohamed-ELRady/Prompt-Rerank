@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prompt Rerank fixture: transformed ancestor + scrolled</title>
+    <style>
+      /*
+        Real AI sites routinely put a transform / will-change / contain on a
+        wrapper or on body itself (for GPU compositing). That makes body the
+        containing block for `position: fixed` descendants — including our
+        Shadow DOM host — so fixed coordinates stop meaning viewport
+        coordinates once the page is scrolled. Any layout math that mixes the
+        two silently places things off-screen.
+      */
+      body {
+        margin: 0;
+        transform: translateZ(0);
+      }
+    </style>
+  </head>
+  <body>
+    <div style="height: 1200px"></div>
+    <textarea id="ta" rows="3" style="width: 320px; margin-left: 40px">
+write me a poem about the sea</textarea>
+    <div style="height: 1200px"></div>
+  </body>
+</html>

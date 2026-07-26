@@ -208,6 +208,73 @@ test('the toolbar itself stays inside the viewport when the field is near the ri
   await expect(page.getByRole('menu')).toBeVisible();
 });
 
+test('the More menu stays on screen under a transformed ancestor on a scrolled page', async ({
+  context,
+}) => {
+  const page = await context.newPage();
+  await page.goto('http://localhost:8787/transformed.html');
+
+  // scroll the field into the middle of the viewport: with body transformed,
+  // our fixed-position surfaces are laid out relative to body, so fixed
+  // coordinates and viewport coordinates now differ by the scroll offset
+  await page.evaluate(() => {
+    document.querySelector('#ta')?.scrollIntoView({ block: 'center' });
+  });
+  await selectAllIn(page, '#ta');
+
+  const toolbar = page.getByRole('toolbar', { name: 'Prompt Rerank actions' });
+  await expect(toolbar).toBeVisible();
+  await toolbar.getByRole('button', { name: 'More ▾' }).click();
+
+  const menu = page.getByRole('menu');
+  await expect(menu).toBeVisible();
+  const box = await boxOf(menu);
+  const { width: viewportWidth, height: viewportHeight } = await page.evaluate(() => ({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  }));
+  // The flip decision used to be made from containing-block coordinates,
+  // which under a transformed ancestor are offset from viewport coordinates
+  // by the scroll amount — so it "flipped up" from a toolbar already at the
+  // top of the screen and landed hundreds of pixels above the fold.
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.y + box.height).toBeLessThanOrEqual(viewportHeight);
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewportWidth);
+  await expect(menu.getByRole('menuitem', { name: 'Shorten' })).toBeVisible();
+});
+
+test('the More menu can be dragged in any direction', async ({ context }) => {
+  const page = await context.newPage();
+  await page.goto('http://localhost:8787/plain.html');
+
+  await selectAllIn(page, '#ta');
+  const toolbar = page.getByRole('toolbar', { name: 'Prompt Rerank actions' });
+  await expect(toolbar).toBeVisible();
+  await toolbar.getByRole('button', { name: 'More ▾' }).click();
+
+  const menu = page.getByRole('menu');
+  await expect(menu).toBeVisible();
+  const before = await boxOf(menu);
+
+  const grip = await boxOf(menu.getByTitle('Drag to move'));
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip.x + grip.width / 2 + 140, grip.y + grip.height / 2 + 100, {
+    steps: 8,
+  });
+  await page.mouse.up();
+
+  const after = await boxOf(menu);
+  expect(after.x - before.x).toBeGreaterThan(100);
+  expect(after.y - before.y).toBeGreaterThan(70);
+  // still usable after moving it
+  await menu.getByRole('menuitem', { name: 'Shorten' }).click();
+  await expect(page.getByRole('region', { name: 'Prompt Rerank result' })).toContainText(
+    MOCK_IMPROVED,
+  );
+});
+
 test('the toolbar can be dragged out of the way', async ({ context }) => {
   const page = await context.newPage();
   await page.goto('http://localhost:8787/plain.html');

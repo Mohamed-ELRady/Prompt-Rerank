@@ -61,6 +61,22 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
   // whenever the real width exceeded it, pushing "More" (and its menu)
   // off-screen. Measured after paint and corrected via this offset instead.
   const [toolbarAutoOffset, setToolbarAutoOffset] = useState({ x: 0, y: 0 });
+  const [menuDrag, setMenuDrag] = useState({ x: 0, y: 0 });
+  /**
+   * The toolbar's real on-screen box plus the origin of its containing block.
+   *
+   * Both matter because host pages often put a transform/will-change/contain
+   * on an ancestor of our Shadow host, which makes THAT element — not the
+   * viewport — the containing block for our `position: fixed` surfaces. Fixed
+   * coordinates then diverge from viewport coordinates by the containing
+   * block's offset, so anything positioned from viewport math (like deciding
+   * whether the menu has room below) has to be converted back through
+   * `origin` before it's written to `top`/`left`.
+   */
+  const [toolbarGeometry, setToolbarGeometry] = useState<{
+    rect: { top: number; bottom: number; left: number; right: number };
+    origin: { x: number; y: number };
+  } | null>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const lastAnchorRef = useRef<{ top: number; left: number } | null>(null);
   const disconnectRef = useRef<(() => void) | null>(null);
@@ -136,11 +152,13 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
     }
   }, [streamingStarted]);
 
-  // The toolbar's width depends on its action labels, so its base position
-  // can only clamp against the left/top edges, not the right/bottom ones —
-  // measure the real rendered box after layout and nudge it back on screen
-  // if it overflows. Runs once per new anchor (not on manual drags — those
-  // are the user's own choice) and converges in at most one correction.
+  // The toolbar's width depends on its action labels, so its base position can
+  // only clamp against the left/top edges, not the right/bottom ones — measure
+  // the real rendered box after layout and nudge it back on screen if it
+  // overflows. The same measurement yields the containing-block origin (the
+  // gap between where we asked it to be and where it actually landed), which
+  // the menu needs to position itself in true viewport terms. Converges in at
+  // most one correction; manual drags are the user's choice and aren't undone.
   useLayoutEffect(() => {
     if (state.phase !== 'toolbar') {
       return;
@@ -158,8 +176,28 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
     const dy = overflowBottom > 0 ? -overflowBottom : overflowTop > 0 ? overflowTop : 0;
     if (dx !== 0 || dy !== 0) {
       setToolbarAutoOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+      return; // re-measure on the next pass, once the correction has applied
     }
-  }, [state]);
+    // Where the browser actually put it vs. where we asked it to be: nonzero
+    // whenever a transformed/contained ancestor is the containing block.
+    const origin = {
+      x: rect.left - (parseFloat(el.style.left) || 0),
+      y: rect.top - (parseFloat(el.style.top) || 0),
+    };
+    setToolbarGeometry((prev) =>
+      prev &&
+      Math.abs(prev.rect.top - rect.top) < 0.5 &&
+      Math.abs(prev.rect.left - rect.left) < 0.5 &&
+      Math.abs(prev.rect.right - rect.right) < 0.5 &&
+      Math.abs(prev.origin.x - origin.x) < 0.5 &&
+      Math.abs(prev.origin.y - origin.y) < 0.5
+        ? prev
+        : {
+            rect: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right },
+            origin,
+          },
+    );
+  }, [state, toolbarAutoOffset]);
 
   useImperativeHandle(ref, () => ({
     showToolbar(target, rect) {
@@ -196,6 +234,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
       lastAnchorRef.current = null;
       setToolbarDrag({ x: 0, y: 0 });
       setToolbarAutoOffset({ x: 0, y: 0 });
+      setMenuDrag({ x: 0, y: 0 });
       setState((current) => (current.phase === 'toolbar' ? { phase: 'hidden' } : current));
     },
   }));
@@ -208,6 +247,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
     setDrag({ x: 0, y: 0 });
     setToolbarDrag({ x: 0, y: 0 });
     setToolbarAutoOffset({ x: 0, y: 0 });
+    setMenuDrag({ x: 0, y: 0 });
     setState({ phase: 'hidden' });
   }, []);
 
@@ -312,17 +352,40 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
     // correction, applied via toolbarAutoOffset).
     const top = Math.max(anchor.top - 44, 8) + toolbarDrag.y + toolbarAutoOffset.y;
     const left = Math.max(anchor.left, 8) + toolbarDrag.x + toolbarAutoOffset.x;
-    // The More menu is tall, so a fixed downward drop ran off the bottom of
-    // the viewport whenever the selection sat low on the page. Open it in
-    // whichever direction has more room and cap its height to fit.
+    // The menu is a fixed-position card placed from the toolbar's MEASURED
+    // on-screen box, not from `top`/`left` above: those are containing-block
+    // coordinates, which diverge from viewport coordinates under a
+    // transformed ancestor — deciding "is there room below?" from them put
+    // the menu hundreds of pixels off-screen on real sites. Viewport math
+    // here, converted back through `origin` when written to style.
+    const MENU_WIDTH = 224;
     const MENU_MAX_HEIGHT = 320;
-    const spaceBelow = window.innerHeight - (top + 36);
-    const spaceAbove = top - 8;
-    const openUpward = spaceBelow < MENU_MAX_HEIGHT && spaceAbove > spaceBelow;
-    const menuHeight = Math.min(
-      MENU_MAX_HEIGHT,
-      Math.max(160, openUpward ? spaceAbove : spaceBelow),
-    );
+    const EDGE = 8;
+    const GAP = 6;
+    const menuStyle = ((): React.CSSProperties | null => {
+      if (!state.menuOpen || !toolbarGeometry) {
+        return null;
+      }
+      const { rect, origin } = toolbarGeometry;
+      const roomBelow = window.innerHeight - rect.bottom - GAP - EDGE;
+      const roomAbove = rect.top - GAP - EDGE;
+      const below = roomBelow >= roomAbove;
+      const maxHeight = Math.max(140, Math.min(MENU_MAX_HEIGHT, below ? roomBelow : roomAbove));
+      // viewport-space target, then clamped inside every edge
+      const viewportTop = below
+        ? rect.bottom + GAP
+        : Math.max(EDGE, rect.top - GAP - Math.min(maxHeight, MENU_MAX_HEIGHT));
+      const viewportLeft = Math.max(
+        EDGE,
+        Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - EDGE),
+      );
+      return {
+        top: viewportTop - origin.y + menuDrag.y,
+        left: viewportLeft - origin.x + menuDrag.x,
+        width: MENU_WIDTH,
+        maxHeight,
+      };
+    })();
     const keepSelection = (e: React.MouseEvent) => {
       e.preventDefault();
     };
@@ -357,27 +420,47 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
             {action.label}
           </button>
         ))}
-        <div className="relative">
-          <button
-            type="button"
-            aria-haspopup="menu"
-            aria-expanded={state.menuOpen}
-            className="rounded-md px-2 py-1 text-xs text-neutral-800 hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800"
-            onMouseDown={keepSelection}
-            onClick={() => {
-              setState({ ...state, menuOpen: !state.menuOpen });
-            }}
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={state.menuOpen}
+          className="rounded-md px-2 py-1 text-xs text-neutral-800 hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800"
+          onMouseDown={keepSelection}
+          onClick={() => {
+            setMenuDrag({ x: 0, y: 0 });
+            setState({ ...state, menuOpen: !state.menuOpen });
+          }}
+        >
+          More ▾
+        </button>
+        {menuStyle && (
+          <div
+            role="menu"
+            style={menuStyle}
+            className="pp-pop-in fixed z-[2147483647] flex touch-none select-none flex-col rounded-lg border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
           >
-            More ▾
-          </button>
-          {state.menuOpen && (
             <div
-              role="menu"
-              style={{ maxHeight: menuHeight }}
-              className={`absolute right-0 ${
-                openUpward ? 'bottom-8' : 'top-7'
-              } w-52 overflow-y-auto rounded-lg border border-neutral-200 bg-white py-1 shadow-xl dark:border-neutral-700 dark:bg-neutral-900`}
+              onPointerDown={dragHandler(menuDrag, setMenuDrag)}
+              title="Drag to move"
+              className="flex shrink-0 cursor-move items-center justify-between border-b border-neutral-200 px-2 py-1 dark:border-neutral-700"
             >
+              <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                <span aria-hidden="true">⠿</span>
+                More actions
+              </span>
+              <button
+                type="button"
+                aria-label="Close menu"
+                className="rounded px-1 text-xs text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                onMouseDown={keepSelection}
+                onClick={() => {
+                  setState({ ...state, menuOpen: false });
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto py-1">
               {menuGroups.map((group) => (
                 <div key={group.title}>
                   <p className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
@@ -400,8 +483,8 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     );
   }
