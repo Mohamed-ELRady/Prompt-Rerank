@@ -44,9 +44,10 @@ export interface FloatingAppHandle {
 
 export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_props, ref) {
   const [state, setState] = useState<UiState>({ phase: 'hidden' });
-  // User-applied drag offset for the result panel, so it can be moved out of
-  // the way / into view on small screens. Reset when the panel closes.
+  // User-applied drag offsets, so neither surface can end up stuck where it
+  // can't be read or reached on small screens. Reset when they close.
   const [drag, setDrag] = useState({ x: 0, y: 0 });
+  const [toolbarDrag, setToolbarDrag] = useState({ x: 0, y: 0 });
   const disconnectRef = useRef<(() => void) | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
   // Watchdog against a stuck "Working…": if no chunk/done/error arrives within
@@ -81,19 +82,24 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
     [],
   );
 
-  const startDrag = useCallback(
+  /**
+   * Pointer-drag handler shared by the toolbar and the result panel. Presses
+   * that land on a button are ignored, so dragging never swallows an action;
+   * preventDefault also keeps the page selection alive through the drag.
+   */
+  const dragHandler =
+    (offset: { x: number; y: number }, setOffset: (next: { x: number; y: number }) => void) =>
     (event: React.PointerEvent) => {
-      // don't drag when grabbing a control inside the header (e.g. ✕)
       if ((event.target as HTMLElement).closest('button')) {
         return;
       }
       event.preventDefault();
       const startX = event.clientX;
       const startY = event.clientY;
-      const originX = drag.x;
-      const originY = drag.y;
+      const originX = offset.x;
+      const originY = offset.y;
       const onMove = (moveEvent: PointerEvent) => {
-        setDrag({
+        setOffset({
           x: originX + (moveEvent.clientX - startX),
           y: originY + (moveEvent.clientY - startY),
         });
@@ -104,9 +110,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
       };
       document.addEventListener('pointermove', onMove);
       document.addEventListener('pointerup', onUp);
-    },
-    [drag],
-  );
+    };
 
   // Move focus into the panel when a run starts, so keyboard and screen-
   // reader users land on the live result region (FR-A7).
@@ -135,6 +139,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
       });
     },
     selectionCleared() {
+      setToolbarDrag({ x: 0, y: 0 });
       setState((current) => (current.phase === 'toolbar' ? { phase: 'hidden' } : current));
     },
   }));
@@ -144,6 +149,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
     disconnectRef.current = null;
     window.clearTimeout(watchdogRef.current);
     setDrag({ x: 0, y: 0 });
+    setToolbarDrag({ x: 0, y: 0 });
     setState({ phase: 'hidden' });
   }, []);
 
@@ -243,8 +249,20 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
   const { anchor } = state;
 
   if (state.phase === 'toolbar') {
-    const top = Math.max(anchor.top - 44, 8);
-    const left = Math.min(Math.max(anchor.left, 8), Math.max(8, window.innerWidth - 340));
+    const top = Math.max(anchor.top - 44, 8) + toolbarDrag.y;
+    const left =
+      Math.min(Math.max(anchor.left, 8), Math.max(8, window.innerWidth - 340)) + toolbarDrag.x;
+    // The More menu is tall, so a fixed downward drop ran off the bottom of
+    // the viewport whenever the selection sat low on the page. Open it in
+    // whichever direction has more room and cap its height to fit.
+    const MENU_MAX_HEIGHT = 320;
+    const spaceBelow = window.innerHeight - (top + 36);
+    const spaceAbove = top - 8;
+    const openUpward = spaceBelow < MENU_MAX_HEIGHT && spaceAbove > spaceBelow;
+    const menuHeight = Math.min(
+      MENU_MAX_HEIGHT,
+      Math.max(160, openUpward ? spaceAbove : spaceBelow),
+    );
     const keepSelection = (e: React.MouseEvent) => {
       e.preventDefault();
     };
@@ -252,10 +270,17 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
       <div
         role="toolbar"
         aria-label="Prompt Rerank actions"
-        className="pp-pop-in fixed z-[2147483647] flex items-center gap-1 rounded-lg border border-neutral-200 bg-white p-1 font-sans shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
+        onPointerDown={dragHandler(toolbarDrag, setToolbarDrag)}
+        className="pp-pop-in fixed z-[2147483647] flex touch-none select-none items-center gap-1 rounded-lg border border-neutral-200 bg-white p-1 font-sans shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
         style={{ top, left }}
       >
-        <span className="px-1.5 text-xs font-semibold text-violet-600 dark:text-violet-400">
+        <span
+          title="Drag to move"
+          className="flex cursor-move items-center gap-1 px-1.5 text-xs font-semibold text-violet-600 dark:text-violet-400"
+        >
+          <span aria-hidden="true" className="text-neutral-400">
+            ⠿
+          </span>
           Prompt Rerank
         </span>
         {primaryActions.map((action) => (
@@ -287,7 +312,10 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
           {state.menuOpen && (
             <div
               role="menu"
-              className="absolute right-0 top-7 max-h-80 w-52 overflow-y-auto rounded-lg border border-neutral-200 bg-white py-1 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+              style={{ maxHeight: menuHeight }}
+              className={`absolute right-0 ${
+                openUpward ? 'bottom-8' : 'top-7'
+              } w-52 overflow-y-auto rounded-lg border border-neutral-200 bg-white py-1 shadow-xl dark:border-neutral-700 dark:bg-neutral-900`}
             >
               {menuGroups.map((group) => (
                 <div key={group.title}>
@@ -333,7 +361,7 @@ export const FloatingApp = forwardRef<FloatingAppHandle>(function FloatingApp(_p
       style={{ top: panelTop, left: panelLeft, width: panelWidth }}
     >
       <header
-        onPointerDown={startDrag}
+        onPointerDown={dragHandler(drag, setDrag)}
         className="mb-2 flex cursor-move touch-none select-none items-center justify-between"
       >
         <span className="flex items-center gap-1.5 text-xs font-semibold text-violet-600 dark:text-violet-400">

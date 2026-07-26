@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prompt Rerank fixture: field near the bottom edge</title>
+  </head>
+  <body style="margin: 0">
+    <h1 style="margin: 8px">Field pinned near the viewport bottom</h1>
+    <!--
+      Reproduces the case where the More menu used to be unreachable: with the
+      composer close to the bottom edge, a menu that always dropped downward
+      rendered below the fold.
+    -->
+    <textarea id="ta" rows="2" style="position: fixed; bottom: 12px; left: 12px; width: 480px">
+write me a poem about the sea</textarea>
+  </body>
+</html>
