@@ -20,6 +20,21 @@ function makeProvider(fetchFn: ReturnType<typeof mockFetch>) {
   );
 }
 
+function makeKeylessProvider(fetchFn: ReturnType<typeof mockFetch>) {
+  return createOpenAiCompatProvider(
+    {
+      id: 'ollama',
+      meta: {
+        label: 'Ollama (local)',
+        requiresKey: false,
+        defaultBaseUrl: 'http://localhost:11434/v1',
+        defaultModel: 'llama3.1',
+      },
+    },
+    fetchFn,
+  );
+}
+
 function chatChunk(content: string): string {
   return JSON.stringify({ choices: [{ delta: { content } }] });
 }
@@ -91,6 +106,27 @@ describe('openai-compat adapter', () => {
       .catch((e: unknown) => e);
     expect(failure).toBeInstanceOf(ProviderError);
     expect((failure as ProviderError).code).toBe(code);
+  });
+
+  it('does not blame "the API key" for a keyless provider on 401/403', async () => {
+    // Regression: errorFromStatus used to hardcode "The API key was
+    // rejected" for every 401/403, even for providers like Ollama that have
+    // no key to reject — actively misleading about what to actually fix
+    // (Base URL, or OLLAMA_ORIGINS for the extension).
+    const provider = makeKeylessProvider(mockFetch(errorResponse(401, '')));
+    const failure: unknown = await provider
+      .complete(
+        { system: 's', user: 'u' },
+        { model: 'llama3.1' },
+        () => undefined,
+        new AbortController().signal,
+      )
+      .catch((e: unknown) => e);
+    expect(failure).toBeInstanceOf(ProviderError);
+    const providerError = failure as ProviderError;
+    expect(providerError.code).toBe('invalid_key');
+    expect(providerError.message).not.toContain('The API key was rejected by the provider.');
+    expect(providerError.message).toContain('OLLAMA_ORIGINS');
   });
 
   it('maps fetch TypeError to a network error', async () => {

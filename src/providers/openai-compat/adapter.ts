@@ -60,7 +60,7 @@ export function createOpenAiCompatProvider(
     try {
       const response = await fetchFn(`${baseUrl(config)}/models`, { headers: headers(config) });
       if (!response.ok) {
-        throw errorFromStatus(response.status, await response.text());
+        throw errorFromStatus(response.status, await response.text(), meta.requiresKey);
       }
       return modelsSchema.parse(await response.json()).data.map(({ id: modelId }) => ({
         id: modelId,
@@ -93,7 +93,7 @@ export function createOpenAiCompatProvider(
         }),
       });
       if (!response.ok) {
-        throw errorFromStatus(response.status, await response.text());
+        throw errorFromStatus(response.status, await response.text(), meta.requiresKey);
       }
       if (!response.body) {
         throw new ProviderError('unknown', 'Provider returned an empty response body.');

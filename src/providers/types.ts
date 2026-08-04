@@ -91,11 +91,25 @@ export function toProviderError(error: unknown): ProviderError {
   return new ProviderError('unknown', error instanceof Error ? error.message : String(error));
 }
 
-/** Shared HTTP-status → ProviderError mapping for REST-ish vendors. */
-export function errorFromStatus(status: number, body: string): ProviderError {
+/**
+ * Shared HTTP-status → ProviderError mapping for REST-ish vendors.
+ *
+ * @param requiresKey Whether this provider's `meta.requiresKey` is true. A
+ * 401/403 from a keyless provider (Ollama, LM Studio) is never "your key was
+ * rejected" — there is no key to reject — so blaming the key there was
+ * actively misleading about what to fix. The real cause for those providers
+ * is almost always the endpoint itself: wrong port, wrong path, or (for
+ * Ollama specifically) `OLLAMA_ORIGINS` not set to allow the extension.
+ */
+export function errorFromStatus(status: number, body: string, requiresKey = true): ProviderError {
   const lower = body.toLowerCase();
   if (status === 401 || status === 403) {
-    return new ProviderError('invalid_key', 'The API key was rejected by the provider.');
+    return requiresKey
+      ? new ProviderError('invalid_key', 'The API key was rejected by the provider.')
+      : new ProviderError(
+          'invalid_key',
+          'The server at this Base URL rejected the request (401/403), even though this provider needs no key. Check the Base URL is correct and, for Ollama, that it was started with OLLAMA_ORIGINS=chrome-extension://* to allow the extension.',
+        );
   }
   if (status === 404) {
     return new ProviderError('model_not_found', 'The requested model was not found.');
