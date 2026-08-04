@@ -49,7 +49,7 @@ describe('buildMetaPrompt', () => {
 
   it('falls back to the improve action for unknown ids', () => {
     const meta = buildMetaPrompt({ actionId: 'does-not-exist', text });
-    expect(meta.system).toContain('applying prompt-engineering best practices');
+    expect(meta.system).toContain('Make this prompt 5x better');
   });
 
   it('does not inject growth-oriented finding fixes into actions meant to stay compact', () => {

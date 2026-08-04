@@ -63,8 +63,11 @@ const improveAction: ActionDefinition = {
   label: 'Improve',
   group: 'primary',
   producesRewrite: true,
+  // One directive, deliberately blunt: light polishing was the most common
+  // complaint about this action, and a target multiplier gives the model a
+  // clear bar to clear instead of a checklist to skim.
   strategy:
-    'Rewrite the prompt to be clearer, more specific, better structured, and more effective, applying prompt-engineering best practices.',
+    'Make this prompt 5x better than it currently is. That is the whole instruction — do not merely polish or reword it. Rewrite it into a dramatically stronger prompt that will get a far better answer from an AI, while keeping the user’s original goal exactly intact.',
 };
 
 export const actions: ActionDefinition[] = [

@@ -13,7 +13,7 @@
 ## Improving a prompt
 
 - **Select text** in any prompt box → the floating toolbar appears:
-  - **Improve** — the all-round rewrite.
+  - **Improve** — the main action: rewrites the prompt to be 5x stronger, not just tidied up.
   - **Make more powerful** — maximal strengthening (role, criteria, structure).
   - **Fix issues** — minimal touch: repairs ambiguity/contradictions only.
   - **Explain weaknesses** — a report instead of a rewrite.
