@@ -4,6 +4,10 @@ import { createLogger } from '@/platform/logging';
 import { registerMessageHandlers } from '@/platform/messaging';
 import { improvePort, type ImproveServerMessage } from '@/platform/messaging/improve-port';
 import { onPortConnect, type PortSession } from '@/platform/messaging/port';
+import {
+  providerTestPort,
+  type ProviderTestServerMessage,
+} from '@/platform/messaging/provider-test-port';
 import { addHistoryEntry, historyRepo, settingsRepo, templatesRepo } from '@/platform/storage';
 import { starterTemplates } from '@/platform/storage/starter-templates';
 import { exportData, importData } from '@/platform/storage/transfer';
@@ -115,6 +119,44 @@ async function runImprove(
   }
 }
 
+type ProviderTestSession = PortSession<
+  typeof providerTestPort.clientMessage,
+  typeof providerTestPort.serverMessage
+>;
+
+async function runProviderTest(
+  session: ProviderTestSession,
+  request: { providerId: string },
+): Promise<void> {
+  const post = (message: ProviderTestServerMessage) => {
+    session.post(message);
+  };
+  try {
+    const { config } = await resolveProviderConfig(request.providerId);
+    const result = await getProvider(request.providerId).complete(
+      {
+        system: 'You are a connectivity test. Reply with only the single word "pong".',
+        user: 'ping',
+        temperature: 0,
+        maxTokens: 10,
+      },
+      config,
+      () => undefined,
+      session.signal,
+    );
+    if (session.signal.aborted) {
+      return;
+    }
+    post({ type: 'done', reply: result.text.trim() });
+  } catch (error) {
+    if (session.signal.aborted) {
+      return; // client went away; nobody to tell
+    }
+    const providerError = toProviderError(error);
+    post({ type: 'error', code: providerError.code, message: providerError.message });
+  }
+}
+
 export default defineBackground(() => {
   browser.runtime.onInstalled.addListener((details) => {
     log.info(`installed (${details.reason})`);
@@ -149,6 +191,12 @@ export default defineBackground(() => {
     });
   });
 
+  onPortConnect(providerTestPort, (session) => {
+    session.onMessage((message) => {
+      void runProviderTest(session, message);
+    });
+  });
+
   registerMessageHandlers({
     ping: () => Promise.resolve({ ok: true, version: browser.runtime.getManifest().version }),
     analyze: ({ text }) => Promise.resolve(analyzePrompt(text)),
@@ -178,26 +226,6 @@ export default defineBackground(() => {
         const { config } = await resolveProviderConfig(providerId);
         await getProvider(providerId).validate(config);
         return { ok: true };
-      } catch (error) {
-        const providerError = toProviderError(error);
-        return { ok: false, code: providerError.code, message: providerError.message };
-      }
-    },
-    'providers.testMessage': async ({ providerId }) => {
-      try {
-        const { config } = await resolveProviderConfig(providerId);
-        const result = await getProvider(providerId).complete(
-          {
-            system: 'You are a connectivity test. Reply with only the single word "pong".',
-            user: 'ping',
-            temperature: 0,
-            maxTokens: 10,
-          },
-          config,
-          () => undefined,
-          AbortSignal.timeout(20_000),
-        );
-        return { ok: true, reply: result.text.trim() };
       } catch (error) {
         const providerError = toProviderError(error);
         return { ok: false, code: providerError.code, message: providerError.message };

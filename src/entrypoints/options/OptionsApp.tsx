@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { browser } from 'wxt/browser';
 import { sendMessage, type MessageOutput } from '@/platform/messaging';
+import { connectPort } from '@/platform/messaging/port';
+import { providerTestPort } from '@/platform/messaging/provider-test-port';
 import { type Settings } from '@/platform/storage';
 import { useTheme } from '@/ui/useTheme';
 import { AdvancedView } from './AdvancedView';
@@ -230,6 +232,9 @@ function ProviderConfigPanel({
   const [models, setModels] = useState<string[]>([]);
   const [modelsOpen, setModelsOpen] = useState(false);
   const [status, setStatus] = useState<{ kind: 'ok' | 'error' | 'busy'; text: string }>();
+  const testPortDisconnectRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => () => testPortDisconnectRef.current?.(), []);
 
   const patchConfig = (patch: { baseUrl?: string; model?: string }) =>
     onPatch({
@@ -292,13 +297,26 @@ function ProviderConfigPanel({
     if (!(await prepareRequest())) {
       return;
     }
+    // A port, not a one-shot message: a real completion can run long enough
+    // for the MV3 service worker to be torn down mid-request, which would
+    // silently strand a plain sendMessage() awaiting a response that never
+    // arrives — the same reason the improve pipeline uses a port.
+    testPortDisconnectRef.current?.();
     setStatus({ kind: 'busy', text: 'Sending a test message…' });
-    const result = await sendMessage('providers.testMessage', { providerId: provider.id });
-    setStatus(
-      result.ok
-        ? { kind: 'ok', text: `The model replied: "${result.reply}"` }
-        : { kind: 'error', text: result.message },
-    );
+    const port = connectPort(providerTestPort);
+    testPortDisconnectRef.current = () => {
+      port.disconnect();
+    };
+    port.onMessage((message) => {
+      testPortDisconnectRef.current = null;
+      setStatus(
+        message.type === 'done'
+          ? { kind: 'ok', text: `The model replied: "${message.reply}"` }
+          : { kind: 'error', text: message.message },
+      );
+      port.disconnect();
+    });
+    port.post({ type: 'start', providerId: provider.id });
   };
 
   const loadModels = async () => {
