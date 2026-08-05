@@ -228,6 +228,7 @@ function ProviderConfigPanel({
   const config = settings.provider.configs[provider.id] ?? {};
   const [keyDraft, setKeyDraft] = useState('');
   const [models, setModels] = useState<string[]>([]);
+  const [modelsOpen, setModelsOpen] = useState(false);
   const [status, setStatus] = useState<{ kind: 'ok' | 'error' | 'busy'; text: string }>();
 
   const patchConfig = (patch: { baseUrl?: string; model?: string }) =>
@@ -295,6 +296,7 @@ function ProviderConfigPanel({
     const result = await sendMessage('providers.models', { providerId: provider.id });
     if (result.ok) {
       setModels(result.models);
+      setModelsOpen(result.models.length > 0);
       setStatus({ kind: 'ok', text: `${String(result.models.length)} models available.` });
     } else {
       setStatus({ kind: 'error', text: result.message });
@@ -362,32 +364,61 @@ function ProviderConfigPanel({
         <span className="mb-1 block font-medium">Model</span>
         <div className="flex gap-2">
           {/*
-            Chrome caches an <input list> as "no suggestions" once it's been
-            focused while the <datalist> was empty, and never re-checks after
-            the datalist is mutated in place — the dropdown arrow then does
-            nothing even though options exist in the DOM. Keying the input
-            (and datalist) on the loaded models forces a fresh DOM node once
-            they arrive, so Chrome re-associates instead of using its stale
-            cached state. The two keys must differ — the input and datalist
-            are siblings, and giving siblings an identical key breaks React's
-            reconciliation instead of remounting either of them.
+            A native <input list>/<datalist> combo was tried here first, but
+            Chrome's suggestion popup for it proved unreliable in practice —
+            it's browser-chrome UI outside the page, invisible to automated
+            checks and, per user reports, sometimes just doesn't open at all.
+            A plain in-page list sidesteps that entirely: it's a normal DOM
+            element, so it always renders and is trivially testable.
           */}
-          <input
-            key={`model-input-${models.join(' ')}`}
-            type="text"
-            className="w-full rounded-md border border-neutral-300 p-2"
-            placeholder={provider.defaultModel}
-            list={`models-${provider.id}`}
-            value={config.model ?? ''}
-            onChange={(e) => {
-              void patchConfig({ model: e.target.value === '' ? undefined : e.target.value });
-            }}
-          />
-          <datalist key={`model-datalist-${models.join(' ')}`} id={`models-${provider.id}`}>
-            {models.map((model) => (
-              <option key={model} value={model} />
-            ))}
-          </datalist>
+          <div className="relative flex-1">
+            <input
+              type="text"
+              aria-label="Model"
+              className="w-full rounded-md border border-neutral-300 p-2 pr-8"
+              placeholder={provider.defaultModel}
+              value={config.model ?? ''}
+              onChange={(e) => {
+                void patchConfig({ model: e.target.value === '' ? undefined : e.target.value });
+              }}
+            />
+            <button
+              type="button"
+              aria-label={modelsOpen ? 'Hide fetched models' : 'Show fetched models'}
+              aria-expanded={modelsOpen}
+              disabled={models.length === 0}
+              className="absolute inset-y-0 right-0 flex w-8 items-center justify-center text-neutral-500 disabled:opacity-30"
+              onClick={() => {
+                setModelsOpen((open) => !open);
+              }}
+            >
+              ▾
+            </button>
+            {modelsOpen && models.length > 0 && (
+              <ul
+                role="listbox"
+                aria-label="Fetched models"
+                className="absolute top-full right-0 left-0 z-10 mt-1 max-h-56 overflow-auto rounded-md border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
+              >
+                {models.map((model) => (
+                  <li key={model}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={model === config.model}
+                      className="block w-full px-3 py-1.5 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                      onClick={() => {
+                        void patchConfig({ model });
+                        setModelsOpen(false);
+                      }}
+                    >
+                      {model}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <button
             type="button"
             className="whitespace-nowrap rounded-md border border-neutral-300 px-3 py-2"
