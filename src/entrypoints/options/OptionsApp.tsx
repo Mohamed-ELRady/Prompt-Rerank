@@ -361,7 +361,19 @@ function ProviderConfigPanel({
       <label className="block text-sm">
         <span className="mb-1 block font-medium">Model</span>
         <div className="flex gap-2">
+          {/*
+            Chrome caches an <input list> as "no suggestions" once it's been
+            focused while the <datalist> was empty, and never re-checks after
+            the datalist is mutated in place — the dropdown arrow then does
+            nothing even though options exist in the DOM. Keying the input
+            (and datalist) on the loaded models forces a fresh DOM node once
+            they arrive, so Chrome re-associates instead of using its stale
+            cached state. The two keys must differ — the input and datalist
+            are siblings, and giving siblings an identical key breaks React's
+            reconciliation instead of remounting either of them.
+          */}
           <input
+            key={`model-input-${models.join(' ')}`}
             type="text"
             className="w-full rounded-md border border-neutral-300 p-2"
             placeholder={provider.defaultModel}
@@ -371,7 +383,7 @@ function ProviderConfigPanel({
               void patchConfig({ model: e.target.value === '' ? undefined : e.target.value });
             }}
           />
-          <datalist id={`models-${provider.id}`}>
+          <datalist key={`model-datalist-${models.join(' ')}`} id={`models-${provider.id}`}>
             {models.map((model) => (
               <option key={model} value={model} />
             ))}

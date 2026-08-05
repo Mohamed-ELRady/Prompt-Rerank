@@ -19,7 +19,12 @@ async function handle(req, res) {
 
   if (url.pathname === '/v1/models') {
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ data: [{ id: 'mock-model' }] }));
+    // A double-digit count mirrors real providers (Ollama/Groq routinely
+    // list a dozen-plus models) and is what exposed the datalist regression.
+    const mockModels = Array.from({ length: 15 }, (_, i) => ({
+      id: `mock-model-${String(i + 1)}`,
+    }));
+    res.end(JSON.stringify({ data: mockModels }));
     return;
   }
 
