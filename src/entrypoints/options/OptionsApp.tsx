@@ -288,6 +288,19 @@ function ProviderConfigPanel({
     );
   };
 
+  const sendTestMessage = async () => {
+    if (!(await prepareRequest())) {
+      return;
+    }
+    setStatus({ kind: 'busy', text: 'Sending a test message…' });
+    const result = await sendMessage('providers.testMessage', { providerId: provider.id });
+    setStatus(
+      result.ok
+        ? { kind: 'ok', text: `The model replied: "${result.reply}"` }
+        : { kind: 'error', text: result.message },
+    );
+  };
+
   const loadModels = async () => {
     if (!(await prepareRequest())) {
       return;
@@ -436,6 +449,13 @@ function ProviderConfigPanel({
           onClick={() => void testConnection()}
         >
           Test connection
+        </button>
+        <button
+          type="button"
+          className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
+          onClick={() => void sendTestMessage()}
+        >
+          Send test message
         </button>
         {status && (
           <p

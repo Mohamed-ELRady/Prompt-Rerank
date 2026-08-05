@@ -66,6 +66,16 @@ export const messageDefinitions = {
       z.object({ ok: z.literal(false), code: z.string(), message: z.string() }),
     ]),
   },
+  // Unlike providers.validate (a cheap GET /models check), this sends a real
+  // chat completion — proof the whole pipeline (auth, model, chat endpoint)
+  // actually produces a model reply, not just that the endpoint responds.
+  'providers.testMessage': {
+    input: z.object({ providerId: z.string() }),
+    output: z.discriminatedUnion('ok', [
+      z.object({ ok: z.literal(true), reply: z.string() }),
+      z.object({ ok: z.literal(false), code: z.string(), message: z.string() }),
+    ]),
+  },
   'vault.set': {
     input: z.object({ providerId: z.string(), key: z.string().min(1) }),
     output: z.object({ keyPreview: z.string() }),

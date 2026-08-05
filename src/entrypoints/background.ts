@@ -183,6 +183,26 @@ export default defineBackground(() => {
         return { ok: false, code: providerError.code, message: providerError.message };
       }
     },
+    'providers.testMessage': async ({ providerId }) => {
+      try {
+        const { config } = await resolveProviderConfig(providerId);
+        const result = await getProvider(providerId).complete(
+          {
+            system: 'You are a connectivity test. Reply with only the single word "pong".',
+            user: 'ping',
+            temperature: 0,
+            maxTokens: 10,
+          },
+          config,
+          () => undefined,
+          AbortSignal.timeout(20_000),
+        );
+        return { ok: true, reply: result.text.trim() };
+      } catch (error) {
+        const providerError = toProviderError(error);
+        return { ok: false, code: providerError.code, message: providerError.message };
+      }
+    },
     'vault.set': async ({ providerId, key }) => {
       await setApiKey(providerId, key);
       return { keyPreview: (await getMaskedKeyPreview(providerId)) ?? '••••' };

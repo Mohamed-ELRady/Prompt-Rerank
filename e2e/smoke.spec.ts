@@ -70,3 +70,20 @@ test('clicking the model dropdown arrow shows every fetched model', async ({
   await expect(page.getByLabel('Model', { exact: true })).toHaveValue('mock-model-7');
   await expect(modelList).toBeHidden();
 });
+
+test('"Send test message" round-trips a real chat completion, not just a connection check', async ({
+  context,
+  extensionId,
+}) => {
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/options.html`);
+  await page.getByLabel('Provider', { exact: true }).selectOption('ollama');
+  await page.getByLabel('Base URL').fill('http://localhost:8787/v1');
+
+  await page.getByRole('button', { name: 'Send test message' }).click();
+  // the mock server's /v1/chat/completions reply, proving this hit the real
+  // completion endpoint rather than /v1/models like "Test connection" does
+  await expect(page.getByRole('status')).toHaveText(
+    'The model replied: "This is the improved prompt."',
+  );
+});
